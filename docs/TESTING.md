@@ -27,12 +27,20 @@ npm run test:native          # on headless Linux: xvfb-run -a npm run test:nativ
 
 CI runs this on Ubuntu. tauri-driver does not support macOS.
 
+## Interface tests (`npm run test:ui`)
+
+`desktop/tests/ui/` drives the real React interface with Playwright against the browser preview (`vite --mode preview`), whose native commands are replaced by synthetic in-memory data (`desktop/src/preview`). They cover month/year/Today navigation across year boundaries and shortcuts, the grid's single Tab stop and arrow/Home/End/Page keys, accessible names and states for future and inactive days, saved column order and archived habits in past months, inline rename and the archive dialog, collapsing panels and small windows, a failed save, reduced motion and 150% text. They prove nothing about native storage. CI runs them in Chromium and WebKit; locally, `npx playwright install chromium` first (or set `EMBER_CHROMIUM` to an installed Chromium). `desktop/tests/*.test.mjs` (`npm run test:unit`) covers the calendar rules.
+
+## Trying the interface
+
+`npm run dev:preview` (or `npm run build:preview` for a static copy in `dist-preview/`) opens Ember in a browser with sample habits held in memory, a PREVIEW bar, and a switch to simulate save failures. Nothing is saved. Use the desktop app for anything involving real data.
+
 ## macOS manual check
 
 Run on a native build (`npm run tauri dev` or a built `.app`) before calling macOS persistence verified:
 
 1. Add two synthetic habits; toggle today on the first. Status reads `LOCAL DATA / SAVED`.
-2. Move the first habit right, rename it, and archive the second. Confirm the rename prompt and archive confirmation appear (WKWebView dialogs).
+2. Move the first habit right, rename it (inline field), and archive the second (in-app confirmation dialog).
 3. Quit with ⌘Q and reopen. Order, names, today's completion, and the archived habit's history are unchanged; the archived habit is absent from the active list but its archive-day cell is still editable.
 4. Data lives at `~/Library/Application Support/com.arlecchino.ember/ember.sqlite3` with mode `-rw-------`.
 5. Optional failure check: quit Ember, run `sqlite3 <that file> "PRAGMA user_version=2"`, reopen and confirm `LOAD ERROR` with the newer-version message; set it back to `1` and press Retry loading.

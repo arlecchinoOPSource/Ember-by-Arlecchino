@@ -40,18 +40,6 @@ const click = (session, selector) => script(session, 'const el = document.queryS
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const assert = (condition, message) => { if (!condition) throw new Error(`Assertion failed: ${message}`); console.log(`  ok  ${message}`); };
 
-// Native dialogs (window.prompt / window.confirm) are answered through WebDriver's alert endpoints.
-async function answerDialog(session, text) {
-  const end = Date.now() + 5000;
-  for (;;) {
-    try {
-      if (text !== undefined) await call('POST', `/session/${session}/alert/text`, { text });
-      await call('POST', `/session/${session}/alert/accept`, {});
-      return;
-    } catch (error) { if (Date.now() > end) throw new Error(`No native dialog appeared: ${error.message}`); await sleep(150); }
-  }
-}
-const clickAsync = (session, selector) => call('POST', `/session/${session}/execute/async`, { script: 'const done = arguments[arguments.length - 1]; setTimeout(() => document.querySelector(arguments[0]).click(), 0); done();', args: [selector] });
 const databaseFile = () => {
   const candidates = ['com.arlecchino.ember'].map(id => join(sandbox, id, 'ember.sqlite3'));
   const found = candidates.find(existsSync);
@@ -77,7 +65,8 @@ try {
   await waitFor(session, statusIs('LOCAL DATA / READY'), 'first launch');
   await addHabit(session, 'Synthetic read');
   await addHabit(session, 'Synthetic walk');
-  const cell = `button[aria-label="Synthetic read, ${day}"]`;
+  const cellFor = name => `button[data-date="${day}"][aria-label^="${name}, "]`;
+  const cell = cellFor('Synthetic read');
   await click(session, cell);
   await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'toggle saved');
   assert(await script(session, `return document.querySelector(arguments[0]).getAttribute('aria-pressed') === 'true'`, [cell]), 'today is checked before restart');
@@ -89,7 +78,7 @@ try {
   session = await launch();
   await waitFor(session, statusIs('LOCAL DATA / READY'), 'second launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'true'`, [cell]), 'completion survived restart');
-  const headings = await script(session, `return [...document.querySelectorAll('thead th')].slice(1).map(th => th.textContent)`);
+  const headings = await script(session, `return [...document.querySelectorAll('thead th .habit-name')].map(th => th.textContent)`);
   assert(JSON.stringify(headings) === JSON.stringify(['Synthetic walk', 'Synthetic read']), `order survived restart (${headings.join(', ')})`);
   await click(session, cell);
   await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'untoggle saved');
@@ -99,16 +88,21 @@ try {
   await waitFor(session, statusIs('LOCAL DATA / READY'), 'third launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'false'`, [cell]), 'removed completion stays removed after restart');
 
-  // Rename and archive go through native prompt/confirm dialogs.
+  // Rename is inline; archive is confirmed in an in-app <dialog>.
   await click(session, cell);
   await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'toggle before rename');
   await click(session, 'button[aria-label="Manage habits"]');
-  await clickAsync(session, 'button[aria-label="Rename Synthetic read"]');
-  await answerDialog(session, 'Synthetic books');
+  await click(session, 'button[aria-label="Rename Synthetic read"]');
+  await waitFor(session, 'return !!document.getElementById(document.querySelector(".rename-form label")?.htmlFor ?? "")', 'rename field');
+  await script(session, `const input = document.querySelector('.rename-form input');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Synthetic books');
+    input.dispatchEvent(new Event('input', { bubbles: true }));`);
+  await click(session, '.rename-form button.primary');
   await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'rename saved');
-  const renamedCell = `button[aria-label="Synthetic books, ${day}"]`;
-  await clickAsync(session, 'button[aria-label="Archive Synthetic walk"]');
-  await answerDialog(session);
+  const renamedCell = cellFor('Synthetic books');
+  await click(session, 'button[aria-label="Archive Synthetic walk"]');
+  await waitFor(session, 'return !!document.querySelector("dialog[open]")', 'archive dialog');
+  await click(session, 'dialog[open] .destructive');
   await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'archive saved');
   await call('DELETE', `/session/${session}`);
 
@@ -116,8 +110,8 @@ try {
   await waitFor(session, statusIs('LOCAL DATA / READY'), 'fourth launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'true'`, [renamedCell]), 'rename kept the completion across restart');
   await click(session, 'button[aria-label="Manage habits"]');
-  assert(await script(session, `return [...document.querySelectorAll('.habit-item strong')].map(e => e.textContent).join() === 'Synthetic books'`), 'archived habit left the active list');
-  assert(await script(session, `return !!document.querySelector('button[aria-label="Synthetic walk, ${day}"]') && !document.querySelector('button[aria-label="Synthetic walk, ${day}"]').disabled`), 'archived habit stays editable on its archive day');
+  assert(await script(session, `return [...document.querySelectorAll('.habit-item > strong')].map(e => e.textContent).join() === 'Synthetic books'`), 'archived habit left the active list');
+  assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-disabled') === null`, [cellFor('Synthetic walk')]), 'archived habit stays editable on its archive day');
 
   // A write blocked by another connection reports NOT SAVED and leaves the cell unchanged.
   const blocker = new DatabaseSync(databaseFile());

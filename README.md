@@ -20,6 +20,20 @@ npm run tauri dev
 
 `npm run check` runs the current type, web build, and Rust checks. `npm run test:native` drives the built app through a restart lifecycle on Linux or Windows; see [native storage testing](docs/TESTING.md). The app stores data in its own Tauri application data directory, never in the Git checkout.
 
+## Keyboard
+
+| Keys | Action |
+| --- | --- |
+| ⌘/Ctrl + ← / → | Previous / next month |
+| ⌘/Ctrl + Shift + ← / → | Previous / next year |
+| ⌘/Ctrl + T | Today |
+| Tab | Into the grid (one stop), then on to the panels |
+| Arrow keys | Move between days and habits in the grid |
+| Home / End, ⌘/Ctrl + Home / End | Start or end of the row; first or last cell |
+| Page Up / Page Down | A week up or down |
+| Space / Enter | Toggle the focused day |
+| ⌘/Ctrl + = / − / 0 | Zoom the interface (text scaling) |
+
 ## Product decisions
 
 - One click toggles a completion. Each successful change is committed to local SQLite before the interface reports it saved.
