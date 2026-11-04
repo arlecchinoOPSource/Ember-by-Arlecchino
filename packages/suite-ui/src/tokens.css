@@ -1,0 +1,169 @@
+/* @arlecchino/suite-ui — semantic theme tokens.
+   Extracted from Terminal 2.0.0 (src/styles/tokens.css) without changing any value.
+   An app chooses its theme with data-theme on <html> (Terminal: mint, Ember: ember); the
+   same attribute on any element scopes a theme to it. Every interface colour is a core role
+   (--dominant, --default-line, --background, --text-drop) or a token derived for that theme.
+   Components use these tokens only. tests/tokens.test.mjs guards the values and contrast. */
+
+/* Aliases shared by every theme. Terminal declares these once in its :root (Mint) block;
+   here they apply to any element carrying data-theme, so each theme block below only has to
+   set the values that differ. They re-resolve from the nearest theme's core roles. */
+[data-theme] {
+  color-scheme: dark;
+  --void: var(--text-drop);
+  --panel: var(--background);
+  --line-2: var(--default-line);
+  --phosphor: var(--dominant);
+  --glow: rgba(var(--dominant-rgb), .32);
+}
+
+/* Terminal Mint, exactly as released in Terminal v1.0.0 — do not adjust. */
+[data-theme='mint'] {
+  color-scheme: dark;
+  /* Core roles (TERMINAL_V2_SPEC §3) */
+  --dominant: #52F0BE;           /* principal accent */
+  --dominant-rgb: 82, 240, 190;  /* same colour as channels, for alpha tints */
+  --default-line: #284239;       /* frames, dividers */
+  --background: #0B0F0D;         /* chrome: rail, header, toolbar, status bar, panels */
+  --text-drop: #050706;          /* darkest recess: canvas, inset fields */
+
+  /* Surfaces, darkest to lightest */
+  --void: var(--text-drop);      /* window canvas */
+  --gutter: #070908;    /* space beside the writing page */
+  --panel: var(--background);    /* rail, toolbar, status bar, panels */
+  --page: #0D1210;      /* writing page; lighter than the canvas in Mint */
+  --panel-2: #121815;   /* inputs, hover, raised */
+  --tint: #10261E;      /* accent-tinted selection background */
+  --shell-bloom: #0E1C17;  /* top of the shell's backdrop gradient */
+  --scrim-rgb: 3, 5, 4;  /* dims the window behind panels and dialogs */
+  /* Lines */
+  --line: #1A2420;      /* quiet rules */
+  --line-2: var(--default-line); /* frames */
+  --line-3: #43786A;    /* control borders (3:1) */
+  /* Ink */
+  --text-strong: #F3FBF7;  /* headings and table headers in the writing page */
+  --text: #E0EFE8;
+  --text-2: #A2BDB1;
+  --muted: #7E9A8E;
+  /* Signals */
+  --phosphor: var(--dominant);   /* primary accent */
+  --phosphor-hi: #B4FFE4;  /* highlight, gradient top */
+  --phosphor-lo: #16906C;  /* gradient foot, dim accent */
+  --glow: rgba(var(--dominant-rgb), .32);
+  --amber: #FFB648;        /* attention: unsaved, saving (not amber in every theme) */
+  --danger: #FF6B78;       /* failures and destructive actions */
+  --danger-rgb: 255, 107, 120;
+  --focus: #C2FFE9;
+  /* Select chevron, stroked in --dominant (a data URI cannot read custom properties). */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2352F0BE' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+/* Blue Monitor. Attention uses the shared amber. */
+[data-theme='blue'] {
+  --dominant: #4FC3FF;
+  --dominant-rgb: 79, 195, 255;
+  --default-line: #283642;
+  --background: #0B0D0F;
+  --text-drop: #050607;
+  --gutter: #070809;
+  --page: #0D1012;
+  --panel-2: #121518;
+  --tint: #101C26;
+  --shell-bloom: #0E161C;
+  --scrim-rgb: 3, 4, 5;
+  --line: #1A1F24;
+  --line-3: #4A6B87;
+  --text-strong: #F3F7FB;
+  --text: #E0E8EF;
+  --text-2: #A2B1BD;
+  --muted: #7E8D9A;
+  --phosphor-hi: #BDE8FF;
+  --phosphor-lo: #1A78B0;
+  --amber: #FFB648;
+  --danger: #FF6B78;
+  --danger-rgb: 255, 107, 120;
+  --focus: #CDEEFF;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234FC3FF' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+/* Ember Orange — Ember's default. Attention uses cyan so it stays distinct from the warm accent. */
+[data-theme='ember'] {
+  --dominant: #FF8A3D;
+  --dominant-rgb: 255, 138, 61;
+  --default-line: #423228;
+  --background: #0F0D0B;
+  --text-drop: #070605;
+  --gutter: #090807;
+  --page: #120F0D;
+  --panel-2: #181412;
+  --tint: #261910;
+  --shell-bloom: #1C140E;
+  --scrim-rgb: 5, 4, 3;
+  --line: #241E1A;
+  --line-3: #82614B;
+  --text-strong: #FBF6F3;
+  --text: #EFE6E0;
+  --text-2: #BDADA2;
+  --muted: #9A897E;
+  --phosphor-hi: #FFD2B0;
+  --phosphor-lo: #B4521A;
+  --amber: #7FD8FF;
+  --danger: #FF6B9A;
+  --danger-rgb: 255, 107, 154;
+  --focus: #FFE2CC;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23FF8A3D' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+/* Amber Display. Attention uses cyan so it stays distinct from the warm accent. */
+[data-theme='amber'] {
+  --dominant: #FFC93C;
+  --dominant-rgb: 255, 201, 60;
+  --default-line: #423B28;
+  --background: #0F0E0B;
+  --text-drop: #070605;
+  --gutter: #090807;
+  --page: #12110D;
+  --panel-2: #181612;
+  --tint: #262010;
+  --shell-bloom: #1C180E;
+  --scrim-rgb: 5, 4, 3;
+  --line: #24211A;
+  --line-3: #786A43;
+  --text-strong: #FBF9F3;
+  --text: #EFEBE0;
+  --text-2: #BDB6A2;
+  --muted: #9A937E;
+  --phosphor-hi: #FFEBB0;
+  --phosphor-lo: #A97A12;
+  --amber: #7FD8FF;
+  --danger: #FF6B9A;
+  --danger-rgb: 255, 107, 154;
+  --focus: #FFF1C7;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23FFC93C' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+/* Theme-independent tokens. */
+:root {
+  --font-ui: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-display: 'Orbitron', 'IBM Plex Sans Condensed', sans-serif;
+  --radius: 3px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  /* Motion (Terminal T-28). Every duration in the suite stylesheets comes from here.
+     Stepped timing gives the mechanical, segmented character; smooth easing is kept
+     for colour and opacity. data-motion on <html> and the OS reduced-motion setting
+     switch decorative motion off (motion.css). */
+  --motion-press: 80ms;     /* button press feedback (60–120) */
+  --motion-state: 130ms;    /* hover, selection, active-control changes (100–160) */
+  --motion-popover: 160ms;  /* Search, Archives, Themes, Settings panels (120–200) */
+  --motion-dialog: 180ms;   /* confirmation dialogs (140–220) */
+  --motion-status: 140ms;   /* save meter fill and state flashes */
+  --motion-sweep: 1s;       /* save meter sweep while a save is in progress */
+  --motion-power-on: 1.1s;  /* one wordmark flicker at launch */
+  --motion-startup: 1.4s;   /* startup sequence; equals STARTUP_SEQUENCE_MS in startup.ts */
+  --motion-startup-exit: 220ms; /* startup screen collapse; equals STARTUP_EXIT_MS */
+  --steps-reveal: steps(4, jump-start);  /* panels open in four bands, the first at once */
+  --steps-dialog: steps(5, jump-start);
+  --steps-flash: steps(3, end);    /* active-control flash */
+  --rail-width: 56px;
+}

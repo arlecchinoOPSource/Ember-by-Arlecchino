@@ -7,11 +7,15 @@
   "scripts": {
     "dev:web": "vite",
     "build:web": "tsc --noEmit && vite build",
-    "check": "npm run build:web && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "check": "npm run test:suite && npm run build:web && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --locked",
     "tauri": "tauri",
-    "test:native": "node e2e/native-lifecycle.mjs"
+    "test:native": "node e2e/native-lifecycle.mjs",
+    "test:suite": "npm --prefix ../packages/suite-ui test",
+    "build:preview": "tsc --noEmit && vite build --mode preview --outDir dist-preview --base ./",
+    "dev:preview": "vite --mode preview"
   },
   "dependencies": {
+    "@arlecchino/suite-ui": "file:../packages/suite-ui",
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@fontsource/orbitron": "5.3.0",
     "@tauri-apps/api": "2.12.4",

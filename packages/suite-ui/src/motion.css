@@ -1,0 +1,37 @@
+/* @arlecchino/suite-ui — retro motion (Terminal T-28/T-29), shared by the suite.
+   Durations and step counts live in tokens.css. Every animation is triggered by a state
+   change; nothing runs while idle. Apps add their own selectors to the same keyframes. */
+
+/* Press: an instant 1px drop with a two-step highlight, released as soon as the pointer is. */
+:is(.icon-button, .suite-button, dialog button):not(:disabled):active { transform: translateY(1px); filter: brightness(1.35); animation: press-flash var(--motion-press) steps(2, end); }
+@keyframes press-flash { from { filter: brightness(1.8); } }
+/* A control switching on flashes in three steps, like a lamp coming up. */
+.rail .icon-button[aria-expanded='true'], .rail .icon-button[aria-pressed='true'] { animation: control-on var(--motion-state) var(--steps-flash); }
+@keyframes control-on { 0% { filter: brightness(1.9); } 50% { filter: brightness(1.3); } 100% { filter: none; } }
+/* Panels open top-down in bands; dialogs open outward from a centre line, like a CRT. */
+.popover { animation: panel-in var(--motion-popover) var(--steps-reveal); }
+@keyframes panel-in { from { clip-path: inset(0 0 100% 0); opacity: .5; } to { clip-path: inset(0); opacity: 1; } }
+dialog[open] { animation: dialog-in var(--motion-dialog) var(--steps-dialog); }
+@keyframes dialog-in { from { clip-path: inset(50% 0 50% 0); } to { clip-path: inset(0); } }
+.popover-scrim { animation: fade-in var(--motion-popover) var(--ease); }
+dialog[open]::backdrop { animation: fade-in var(--motion-dialog) var(--ease); }
+@keyframes fade-in { from { opacity: 0; } }
+/* Save meter: flashes once when saved, blinks twice on failure (starting lit). */
+.save-status[data-tone='ok'] .save-meter > span { animation: status-flash var(--motion-status) var(--steps-flash); }
+@keyframes status-flash { 0% { filter: brightness(2); } 100% { filter: none; } }
+.save-status[data-tone='error'] .save-meter { animation: status-alert calc(var(--motion-status) * 2) steps(1, end) 2; }
+@keyframes status-alert { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Reduced: no movement, flashes, sweeps or stepped reveals; short colour fades remain. */
+:root[data-motion='reduced'] *, :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after, :root[data-motion='reduced'] ::backdrop { animation: none !important; }
+:root[data-motion='reduced'] *:active { transform: none !important; }
+:root[data-motion='reduced'] .save-status[data-tone='busy'] .save-meter > span { left: 0; }
+/* Off, and any OS request for reduced motion (which an app setting cannot override): nothing moves. */
+:root[data-motion='off'] *, :root[data-motion='off'] *::before, :root[data-motion='off'] *::after, :root[data-motion='off'] ::backdrop { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+:root[data-motion='off'] *:active { transform: none !important; }
+:root[data-motion='off'] .save-status[data-tone='busy'] .save-meter > span { left: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, ::backdrop { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+  *:active { transform: none !important; }
+  .save-status[data-tone='busy'] .save-meter > span { left: 0; }
+}
