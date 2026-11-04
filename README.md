@@ -18,7 +18,7 @@ npm ci
 npm run tauri dev
 ```
 
-`npm run check` runs the current type, web build, and Rust checks. The app stores data in its own Tauri application data directory, never in the Git checkout.
+`npm run check` runs the current type, web build, and Rust checks. `npm run test:native` drives the built app through a restart lifecycle on Linux or Windows; see [native storage testing](docs/TESTING.md). The app stores data in its own Tauri application data directory, never in the Git checkout.
 
 ## Product decisions
 
