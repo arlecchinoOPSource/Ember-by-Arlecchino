@@ -30,7 +30,7 @@ export function App() {
     setCompletions(new Set(rows.map(([id, date]) => `${id}:${date}`)));
   }, []);
   useEffect(() => {
-    if (!native) return;
+    if (!native) { setStatus('ready'); return; }
     let live = true;
     setStatus('loading');
     Promise.all([invoke<Habit[]>('habits_list'), invoke<Completion[]>('completions_month', { year, month })])
@@ -127,7 +127,7 @@ export function App() {
 
         <aside className="right-panel"><p className="panel-kicker">MONTHLY / {monthNames[month - 1]!.toUpperCase()}</p><div className="stat"><span>COMPLETIONS</span><strong>{completed}</strong></div><div className="stat"><span>ELIGIBLE DAYS</span><strong>{eligibleElapsed}</strong></div><div className="rate"><div><span>PROGRESS</span><strong>{rate}%</strong></div><div className="progress-track"><span style={{ width: `${rate}%` }} /></div><small>Based on active habit-days through today.</small></div><div className="right-note">Small things,<br />done often<span>.</span></div></aside>
       </div>
-      <footer className="statusbar"><span role="status" aria-live="polite" className={`status ${status}`}><i />{status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'error' ? 'SAVE ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY'}</span><span>{monthNames[month - 1]!.toUpperCase()} · {dates.length} DAYS</span></footer>
+      <footer className="statusbar"><span role="status" aria-live="polite" className={`status ${status}`}><i />{!native ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'error' ? 'SAVE ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY'}</span><span>{monthNames[month - 1]!.toUpperCase()} · {dates.length} DAYS</span></footer>
       {error && <div className="error-banner" role="alert">{error} <button onClick={() => { setError(''); void loadHabits().then(() => loadMonth(year, month)).then(() => setStatus('ready')).catch(reason => { setStatus('error'); setError(String(reason)); }); }}>Retry loading</button></div>}
     </div>
   </div>;
