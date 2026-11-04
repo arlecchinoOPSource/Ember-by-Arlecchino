@@ -1,0 +1,23 @@
+name: Ember feature
+description: Focused product work toward Ember 1.0
+title: "[Ember] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+      description: What should a person be able to do?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance checks
+      description: Observable behavior, including persistence and accessibility where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and compatibility impact
+      description: State whether a migration, import, export, or Terminal regression check is needed.
