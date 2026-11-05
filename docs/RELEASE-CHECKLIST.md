@@ -7,7 +7,7 @@ Verification on 5 November 2026. Candidate version 1.0.0, SQLite schema v1.
 - [x] Website snapshot preview, all 61 dates, bit mapping, duplicates and transaction rollback pass native tests.
 - [x] Backup/restore and JSON/CSV exports are documented in [DATA.md](DATA.md). Round-trip, stale preview, recovery file, malformed data, capacity limit and injected failure tests pass.
 - [x] Shared token checks and Chromium/WebKit tests cover keyboard, focus, text scaling and reduced motion. Packaged Mac grid exposes accessible names, checked states, future dates and progress.
-- [ ] Finish the hands-on packaged accessibility review, including contrast, text zoom and reduced motion.
+- [x] Reviewed enlarged settings, text contrast, visible keyboard focus and Reduced motion in the packaged Apple Silicon app. The Mac file picker previewed 10 habits and 20 completions; confirmation restored them and displayed the recovery copy.
 - [x] Installer resources include MIT and both font OFL texts. The Ember logo and bundled original completion cue are project assets. Asset notices are recorded in the suite package.
 - [x] Production identifier, version, icons, local data locations and candidate [release notes](RELEASE-NOTES.md) reviewed.
 - [x] Apple Silicon macOS DMG verified by checksum, mounted read-only and copied to an isolated installation. Strict bundle signature verification passed. Two launches opened the same synthetic profile; removal of the app preserved its history.

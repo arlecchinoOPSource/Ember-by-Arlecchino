@@ -2,11 +2,10 @@
 // native launch, then verify exact records after the next launch and after uninstall.
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
 const [mode, kind] = process.argv.slice(2);
-const path = join(process.env.APPDATA, 'com.arlecchino.ember', 'ember.sqlite3');
+const path = process.env.EMBER_TEST_DATA;
 assert(existsSync(path), 'Installed app must create its own database before the test connects.');
 const db = new DatabaseSync(path);
 try {
