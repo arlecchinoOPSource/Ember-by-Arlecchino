@@ -1,10 +1,10 @@
 import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
-import { Settings } from './Settings';
+import { Settings, ThemePicker } from './Settings';
 import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
 import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
+import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
 import { MONTH_NAMES, canShift, monthDates, monthStats, practiceStreaks, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
 import { HabitGrid } from './HabitGrid';
 import { NARROW_QUERY, useMediaQuery, usePanel, useToday } from './hooks';
@@ -12,7 +12,7 @@ import { native } from './native';
 import { ArchiveList, HabitManager, SidePanel, Summary } from './Panels';
 
 type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'load-error' | 'save-error';
-type LeftMode = 'archive' | 'habits' | 'settings';
+type LeftMode = 'archive' | 'habits';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? '⌘' : 'Ctrl';
@@ -36,6 +36,9 @@ export function App() {
   const [leftOpen, setLeftOpen] = usePanel('left', narrow);
   const [rightOpen, setRightOpen] = usePanel('right', narrow);
   const addRef = useRef<HTMLInputElement>(null);
+  const themesRef = useRef<HTMLButtonElement>(null);
+  const settingsRef = useRef<HTMLButtonElement>(null);
+  const [panel, setPanel] = useState<'themes' | 'settings' | null>(null);
   const isNative = isTauri();
   const busy = status === 'loading' || status === 'saving';
 
@@ -116,17 +119,28 @@ export function App() {
   // Short and truthful, like Terminal's: SAVED only after SQLite committed.
   const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'OPENING' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'SAVED' : 'READY';
 
-  // Settings sits at the bottom of the rail, as in Terminal.
-  const settingsButton = <IconButton icon="settings" label="Settings" className="rail-bottom" aria-pressed={leftOpen && leftMode === 'settings'} aria-controls="left-panel" onClick={() => openLeft('settings')} />;
+  function updatePreferences(next: typeof preferences) {
+    setPreferences(next);
+    setPreferencesStored(storePreferences(next));
+  }
+  // Terminal keeps Themes in the rail and Settings at its bottom.
+  const settingsButton = <IconButton ref={settingsRef} icon="settings" label="Settings" className="rail-bottom" aria-expanded={panel === 'settings'} aria-controls="settings-panel" onClick={() => setPanel(current => current === 'settings' ? null : 'settings')} />;
   const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />} bottom={settingsButton}>
     <IconButton icon="calendar" label="Calendar archive" aria-pressed={leftOpen && leftMode === 'archive'} aria-controls="left-panel" onClick={() => openLeft('archive')} />
     <button type="button" className="icon-button" aria-label="Manage habits" title="Manage habits" aria-pressed={leftOpen && leftMode === 'habits'} aria-controls="left-panel" onClick={() => openLeft('habits')}>
       <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
     </button>
     <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
+    <IconButton ref={themesRef} icon="themes" label="Themes" aria-expanded={panel === 'themes'} aria-controls="theme-panel" onClick={() => setPanel(current => current === 'themes' ? null : 'themes')} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
+    {panel === 'themes' && <Popover id="theme-panel" title="Themes" className="ember-theme-popover" scrim onClose={() => setPanel(null)} triggerRef={themesRef}><ThemePicker current={preferences.theme} onSelect={theme => updatePreferences({ ...preferences, theme })} /></Popover>}
+    {panel === 'settings' && <Popover id="settings-panel" title="Settings" className="ember-settings-popover" scrim onClose={() => setPanel(null)} triggerRef={settingsRef}>
+      <Settings value={preferences} stored={preferencesStored} update={updatePreferences} openThemes={() => setPanel('themes')} />
+      {isNative && import.meta.env.MODE !== 'preview' && <div className="settings-data"><h3 className="settings-section">DATA</h3><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></div>}
+      <p className="settings-about">Ember keeps habits and settings on this device. Check the save status before closing.</p>
+    </Popover>}
     <IdentityStrip wordmark="EMBER" powerOn={opened} />
     <section className="toolbar" aria-label="Calendar controls">
       <div className="tool-group">
@@ -144,13 +158,9 @@ export function App() {
     </section>
 
     <div className="content" data-left={leftOpen ? 'open' : 'closed'} data-right={rightOpen ? 'open' : 'closed'}>
-      <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : leftMode === 'settings' ? 'Settings' : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : leftMode === 'settings' ? 'SETTINGS' : 'HABITS'}>
+      <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : 'HABITS'}>
         {leftMode === 'archive'
           ? <ArchiveList at={at} today={today} busy={false} onSelect={month => { go({ year: at.year, month }); if (narrow) setLeftOpen(false); }} onYear={year => go(withYear(at, year))} />
-          : leftMode === 'settings' ? <><Settings value={preferences} stored={preferencesStored} update={next => {
-              setPreferences(next);
-              setPreferencesStored(storePreferences(next));
-            }} />{isNative && import.meta.env.MODE !== 'preview' && <><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></>}</>
           : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
               onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}
