@@ -6,11 +6,12 @@ let mod = 'Control';
 async function open(page: Page, isoNow = '2026-12-31T10:00:00') {
   await page.clock.install({ time: new Date(isoNow) });
   await page.goto('/');
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/READY/);
+  await expect(statusBar(page)).toHaveText('READY');
   // The app uses ⌘ where the browser reports a Mac, Ctrl elsewhere.
   mod = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform)) ? 'Meta' : 'Control';
 }
 const title = (page: Page) => page.locator('.month-title');
+const statusBar = (page: Page) => page.locator('.save-status');
 const grid = (page: Page) => page.getByRole('grid');
 const columnNames = (page: Page) => page.locator('thead th .habit-name').allTextContents();
 
@@ -52,7 +53,7 @@ test('the grid is one Tab stop with arrow-key movement, and toggling keeps focus
   await expect(cell).toHaveAccessibleName(/^Workout, Wednesday,? 30 December 2026|^Workout, Wednesday, December 30, 2026/);
   const before = await cell.getAttribute('aria-pressed');
   await page.keyboard.press('Space');
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/SAVED/);
+  await expect(statusBar(page)).toHaveText('SAVED');
   await expect(cell).toHaveAttribute('aria-pressed', before === 'true' ? 'false' : 'true');
   await expect(cell).toBeFocused();
   await page.keyboard.press('ArrowRight');
@@ -73,7 +74,7 @@ test('future and inactive days are announced, focusable, and cannot be toggled',
   await future.focus();
   await page.keyboard.press('Space');
   await expect(future).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/READY/);
+  await expect(statusBar(page)).toHaveText('READY');
 });
 
 test('columns follow the saved order; archived habits stay in their historical months', async ({ page }) => {
@@ -86,7 +87,7 @@ test('columns follow the saved order; archived habits stay in their historical m
   await page.keyboard.press(`${mod}+t`);
   await page.getByRole('button', { name: 'Manage habits' }).click();
   await page.getByRole('button', { name: 'Move Workout right' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/SAVED/);
+  await expect(statusBar(page)).toHaveText('SAVED');
   expect(await columnNames(page)).toEqual(['Read', 'Workout', 'Guitar', 'Meditate', 'Old routine', 'Compose']);
 });
 
@@ -155,7 +156,7 @@ test('a failed save says so, changes nothing, and reload recovers', async ({ pag
   await expect(cell).toHaveAttribute('aria-pressed', before!);
   await page.getByLabel('Simulate save failure').uncheck();
   await page.getByRole('button', { name: 'Reload saved data' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/READY/);
+  await expect(statusBar(page)).toHaveText('READY');
 });
 
 test('reduced motion turns animation off; text scaling keeps the layout usable', async ({ page }) => {
@@ -189,5 +190,36 @@ test('preferences survive reopening and optional audio failure leaves the comple
   const cell = grid(page).locator('button[data-date="2026-12-31"]').first();
   await cell.click();
   await expect(cell).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/SAVED/);
+  await expect(statusBar(page)).toHaveText('SAVED');
+});
+
+test('Terminal parity: centred wordmark, no decorative text, Settings at the rail bottom', async ({ page }) => {
+  for (const size of [{ width: 1160, height: 780 }, { width: 680, height: 500 }]) {
+    await page.setViewportSize(size);
+    await open(page);
+    const strip = (await page.locator('.identity-strip').boundingBox())!;
+    const mark = (await page.locator('.identity-strip .wordmark').boundingBox())!;
+    expect(Math.abs((mark.x + mark.width / 2) - (strip.x + strip.width / 2))).toBeLessThan(2);
+    const text = await page.locator('#root').innerText();
+    for (const gone of ['HABIT SYSTEM', 'ONE DAY AT A TIME', 'LOCAL DATA', '· 30 DAYS', '· 31 DAYS']) expect(text).not.toContain(gone);
+    await expect(statusBar(page)).toHaveText('READY');
+    const settings = page.getByRole('button', { name: 'Settings' });
+    await expect(settings).toBeInViewport();
+    const rail = (await page.locator('.rail').boundingBox())!;
+    const box = (await settings.boundingBox())!;
+    expect(rail.y + rail.height - (box.y + box.height)).toBeLessThan(16);
+  }
+  // Keyboard: Settings is reachable and shows a visible focus ring.
+  await page.getByRole('button', { name: 'Add habit' }).focus();
+  await page.keyboard.press('Tab');
+  const settings = page.getByRole('button', { name: 'Settings' });
+  await expect(settings).toBeFocused();
+  expect(await settings.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('combobox', { name: 'Theme' })).toBeVisible();
+  // Everyday text uses the reading faces; Orbitron stays for the wordmark and short headings.
+  const font = (selector: string) => page.locator(selector).first().evaluate(e => getComputedStyle(e).fontFamily);
+  expect(await font('thead th')).toContain('IBM Plex Sans');
+  expect(await font('.month-title')).toContain('IBM Plex Sans Condensed');
+  expect(await font('.wordmark')).toContain('Orbitron');
 });

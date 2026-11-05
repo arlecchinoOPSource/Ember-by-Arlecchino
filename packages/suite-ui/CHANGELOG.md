@@ -2,6 +2,14 @@
 
 Versions follow semver. A change to any token value, class name or component prop that an app relies on is a major change; Terminal and Ember pin an exact version.
 
+## 0.2.0 — 2026-11-05
+
+Ember issue #9 (Terminal parity). Additive; no token value changed.
+
+- `shell.css`: Terminal's toolbar (42px), `.tool-group`, `.tool-button` (30px), `.tool-text` and the themed `select` with its chevron, at Terminal 2.0.0 sizes.
+- `motion.css`: tool buttons get the shared press and switch-on flashes.
+- `README`: Version bumped; the Terminal adoption plan now also replaces these rules.
+
 ## 0.1.0 — 2026-11-05
 
 First extraction from Terminal 2.0.0 (Ember issue #3).

@@ -1,6 +1,6 @@
 # Ember 1.0.0 candidate
 
-Ember is a local habit tracker for macOS and Windows. Create, rename, order and archive habits, navigate the monthly grid by keyboard, and track eligible-day completion and practice streaks. Theme, motion, panel and sound controls stay on the device. The completion cue starts muted.
+Ember is a local habit tracker for macOS and Windows, sharing Terminal by Arlecchino's interface in Ember Orange with its own `e>` icon. Create, rename, order and archive habits, navigate the monthly grid by keyboard, and track eligible-day completion and practice streaks. Theme, motion, panel and sound controls stay on the device. The completion cue starts muted.
 
 Settings includes the November–December 2026 website snapshot importer, manual backups, previewed restore with a recovery copy, and JSON/CSV history exports. See [Data and recovery](DATA.md) for file locations and instructions.
 
