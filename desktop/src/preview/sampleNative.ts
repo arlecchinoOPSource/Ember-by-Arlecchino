@@ -49,6 +49,14 @@ const write = () => { if (preview.failWrites) fail('Ember could not save this ch
 
 function handle(cmd: string, args: Record<string, unknown>): unknown {
   switch (cmd) {
+    case 'practice_days': {
+      const counts = new Map<string, number>();
+      for (const key of completions) {
+        const date = key.split('|')[1]!;
+        counts.set(date, (counts.get(date) ?? 0) + 1);
+      }
+      return [...counts];
+    }
     case 'habits_list': return sorted();
     case 'completions_month': {
       const prefix = `${args.year}-${pad(Number(args.month))}-`;
@@ -94,6 +102,4 @@ export function install() {
   bar.querySelector('input')!.addEventListener('change', event => { preview.failWrites = (event.target as HTMLInputElement).checked; });
   document.body.prepend(bar);
   document.documentElement.classList.add('has-preview-bar');
-  // Hosted previews may set their own data-theme on <html>; the body carries Ember's theme as well.
-  document.body.dataset.theme = 'ember';
 }

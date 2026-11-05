@@ -9,4 +9,6 @@
 | 4 | Statistics and polish | Eligible-day rate, streaks, local settings, vetted sound, reduced-motion startup |
 | 5 | Data portability and release | Website import, backup/restore, JSON/CSV, macOS/Windows installers and release checklist |
 
-Phases 0–2 have an initial implementation; their exit checks still require verification. The remaining phases are planned work, not completed features. Use the GitHub issue templates for each focused task.
+The Ember desktop branch includes the native habit engine, calendar workspace, and the first shared suite-ui package. Terminal adoption is a separate reviewed change in the Terminal repository and can proceed independently of issue #4.
+
+Issue #4 adds eligible-day statistics, cross-month practice streaks, device-local preferences, and an optional completion sound. Startup displays the actual local-data loading state and becomes ready as soon as the first read succeeds. Phase 5 includes the website importer, versioned backup and transactional restore, and JSON/CSV history exports. Installer verification is tracked separately. Follow the release checklist for platform verification.

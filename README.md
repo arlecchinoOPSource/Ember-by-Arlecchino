@@ -4,7 +4,7 @@ Ember is an offline desktop habit tracker for macOS and Windows. It is being bui
 
 ## Project status
 
-Early development. The desktop app is not a distributable 1.0 release yet. The current foundation includes the month grid, habit management, and local persistence; import, backup/restore, accessibility review, installers, and platform verification remain on the [roadmap](docs/ROADMAP.md).
+Version 1.0.0 is undergoing installer verification. The candidate includes the monthly tracker, practice streaks, website import, manual backup and restore, and CSV/JSON exports. See the [release checklist](docs/RELEASE-CHECKLIST.md) for tested platforms and publication status.
 
 The existing Ember website is a separate private Site. Its checkout and any user data are excluded from this repository. The desktop app does not access the website account or database.
 
@@ -40,7 +40,7 @@ npm run tauri dev
 - Habits have permanent IDs. Renaming and reordering preserve history; archiving hides a habit from future days without deleting its records.
 - Dates use the device's local calendar. Future dates cannot be completed.
 - No account, cloud sync, telemetry, or runtime network connection is required.
-- The current website's JSON snapshot format is the source for a future explicit import path. See [data model](docs/DATA.md).
+- Settings can import the website’s version 1 snapshot and preview a local backup before restoring it. See [data model](docs/DATA.md).
 
 Read the [product brief](docs/PRODUCT.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), and [contribution guide](CONTRIBUTING.md) before changing product behavior.
 

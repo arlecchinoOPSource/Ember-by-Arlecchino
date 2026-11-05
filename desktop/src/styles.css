@@ -132,3 +132,14 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .has-preview-bar #root { padding-top: 26px; box-sizing: border-box; }
 /* The preview may be opened on a phone: let the frame shrink and scroll inside instead of the page. */
 .has-preview-bar, .has-preview-bar body, .has-preview-bar #root { min-width: 0; overflow: hidden; }
+
+.preference-fields { display: grid; gap: 1rem; padding: .75rem; }
+.preference-fields label { display: grid; gap: .35rem; }
+.preference-fields label:has(input) { display: flex; align-items: center; }
+.preference-fields select { max-width: 100%; font: inherit; color: var(--text); background: var(--panel); }
+
+.data-copies { min-width: 0; margin: .75rem 0; padding: .65rem; border: 1px solid var(--line-2); }
+.data-copies button { margin: .2rem; }
+.data-copies label { display: grid; margin-top: .5rem; }
+.data-copies input { max-width: 100%; }
+.data-copies p { overflow-wrap: anywhere; user-select: text; }

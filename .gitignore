@@ -21,3 +21,9 @@ work/
 *.tar.gz
 .codex/
 .agents/
+*.sqlite3
+*.sqlite3-*
+ember-backup-*.json
+ember-pre-restore-*.json
+ember-history-*.json
+ember-history-*.csv

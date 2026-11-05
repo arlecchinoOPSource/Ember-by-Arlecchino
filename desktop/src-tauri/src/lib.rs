@@ -1,3 +1,5 @@
+mod backup;
+mod import;
 mod storage;
 
 use chrono::Local;
@@ -36,6 +38,39 @@ fn with_db<T>(
         Ok(db) => action(db),
         Err(reason) => Err(reason.clone()),
     }
+}
+
+fn copies(db: &Database) -> Result<PathBuf, String> {
+    db.path
+        .as_deref()
+        .and_then(Path::parent)
+        .map(|p| p.join("Exports"))
+        .ok_or("Ember data folder unavailable.".into())
+}
+#[tauri::command]
+fn export_history(db: tauri::State<'_, Database>, kind: String) -> Result<PathBuf, String> {
+    let folder = copies(&db)?;
+    with_db(db, |conn| backup::export(conn, &folder, &kind))
+}
+#[tauri::command]
+fn restore_history(
+    db: tauri::State<'_, Database>,
+    raw: String,
+    confirmation: Option<String>,
+) -> Result<backup::Preview, String> {
+    let folder = copies(&db)?;
+    with_db(db, |conn| {
+        backup::restore(conn, &folder, &raw, confirmation.as_deref())
+    })
+}
+
+#[tauri::command]
+fn website_snapshot(
+    db: tauri::State<'_, Database>,
+    raw: String,
+    confirm: bool,
+) -> Result<import::Preview, String> {
+    with_db(db, |conn| import::run(conn, &raw, &today(), confirm))
 }
 
 #[tauri::command]
@@ -77,6 +112,10 @@ fn habits_archive(db: tauri::State<'_, Database>, id: String) -> Result<Vec<Habi
         storage::archive(conn, &id, &today())?;
         storage::list(conn)
     })
+}
+#[tauri::command]
+fn practice_days(db: tauri::State<'_, Database>) -> Result<Vec<(String, i64)>, String> {
+    with_db(db, |conn| storage::practice_days(conn))
 }
 #[tauri::command]
 fn completions_month(
@@ -138,11 +177,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            export_history,
+            restore_history,
+            website_snapshot,
             habits_list,
             habits_create,
             habits_rename,
             habits_move,
             habits_archive,
+            practice_days,
             completions_month,
             completions_toggle
         ])

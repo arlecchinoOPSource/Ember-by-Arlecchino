@@ -82,3 +82,11 @@ test('today rolls over at the next local midnight', () => {
   assert.equal(msUntilMidnight(late), 60_000);
   assert.ok(msUntilMidnight(new Date(2026, 0, 1, 0, 0, 0)) > 23 * 3600_000);
 });
+
+test('practice streaks span months, count a day once and reset after a missed day', async () => {
+  const { practiceStreaks } = await import('../src/calendar.ts');
+  const dates = ['2027-01-01', '2026-12-31', '2027-01-01', '2027-01-04'];
+  assert.deepEqual(practiceStreaks(dates, '2027-01-02'), { current: 2, longest: 2 });
+  assert.deepEqual(practiceStreaks(dates, '2027-01-03'), { current: 0, longest: 2 });
+  assert.deepEqual(practiceStreaks(dates, '2027-01-04'), { current: 1, longest: 2 });
+});

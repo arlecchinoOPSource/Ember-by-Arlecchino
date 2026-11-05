@@ -10,8 +10,8 @@ use std::path::Path;
 /// migration in [`migrate`] and an old-database fixture in `tests/fixtures`.
 pub const SCHEMA_VERSION: i64 = 1;
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, serde::Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Habit {
     pub id: String,
     pub name: String,
@@ -23,7 +23,7 @@ pub struct Habit {
 
 /// Turns a SQLite failure into a message a person can act on. The raw error goes to stderr
 /// for diagnostics; it is never treated as a successful save.
-fn failed(context: &'static str) -> impl Fn(rusqlite::Error) -> String {
+pub(crate) fn failed(context: &'static str) -> impl Fn(rusqlite::Error) -> String {
     move |error| {
         eprintln!("ember storage: could not {context}: {error}");
         let hint = match error.sqlite_error_code() {
@@ -54,7 +54,7 @@ pub fn valid_date(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn valid_name(value: &str) -> Result<&str, String> {
+pub(crate) fn valid_name(value: &str) -> Result<&str, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.chars().count() > 60 || trimmed.chars().any(char::is_control) {
         return Err("Habit names must have 1–60 visible characters.".into());
@@ -63,7 +63,7 @@ fn valid_name(value: &str) -> Result<&str, String> {
 }
 
 /// Habit IDs are generated as `lower(hex(randomblob(16)))` and never change.
-fn valid_id(value: &str) -> Result<&str, String> {
+pub(crate) fn valid_id(value: &str) -> Result<&str, String> {
     if value.len() == 32
         && value
             .bytes()
@@ -258,6 +258,21 @@ pub fn archive(db: &Connection, id: &str, archived_at: &str) -> Result<(), Strin
     Ok(())
 }
 
+pub fn practice_days(db: &Connection) -> Result<Vec<(String, i64)>, String> {
+    let mut statement = db
+        .prepare(
+            "SELECT c.date, COUNT(*) FROM completions c JOIN habits h ON h.id = c.habit_id
+         WHERE c.date >= h.start_date AND (h.archived_at IS NULL OR c.date <= h.archived_at)
+         GROUP BY c.date ORDER BY c.date",
+        )
+        .map_err(failed(READ))?;
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(failed(READ))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(failed(READ))
+}
+
 pub fn month_rows(db: &Connection, year: i32, month: u32) -> Result<Vec<(String, String)>, String> {
     let first = NaiveDate::from_ymd_opt(year, month, 1).ok_or("Invalid month.")?;
     let next = first
@@ -378,6 +393,53 @@ mod tests {
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap()
+    }
+
+    #[test]
+    fn simulate_november_ten_habit_stack() {
+        use crate::import::HABITS;
+        let dir = TempDir::new("november-stack");
+        let path = dir.db();
+        let mut db = open_database(&path).unwrap();
+        // Create in reverse, then use the same move operation as the habit manager.
+        for (_, name) in HABITS.iter().rev() {
+            create(&db, name, "2026-11-01").unwrap();
+        }
+        for (target, (_, name)) in HABITS.iter().enumerate() {
+            let current = list(&db).unwrap();
+            let index = current.iter().position(|h| h.name == *name).unwrap();
+            for _ in target..index {
+                move_habit(&mut db, &current[index].id, -1).unwrap();
+            }
+        }
+        let stack = list(&db).unwrap();
+        assert!(
+            stack
+                .iter()
+                .map(|h| h.name.as_str())
+                .eq(HABITS.map(|(_, name)| name))
+        );
+        let mut expected = Vec::new();
+        // Start with Workout, add one practice per day, then keep the complete stack.
+        for day in 1..=30 {
+            let date = format!("2026-11-{day:02}");
+            for h in stack.iter().take(day.min(10)) {
+                assert!(toggle(&mut db, &h.id, &date, &date).unwrap());
+                expected.push((h.id.clone(), date.clone()));
+            }
+            // Exercise correcting a check and restoring it before closing for the day.
+            assert!(!toggle(&mut db, &stack[0].id, &date, &date).unwrap());
+            assert!(toggle(&mut db, &stack[0].id, &date, &date).unwrap());
+            drop(db);
+            db = open_database(&path).unwrap();
+            assert_eq!(list(&db).unwrap(), stack);
+            let actual = month_rows(&db, 2026, 11).unwrap();
+            assert_eq!(actual.len(), expected.len());
+            assert!(expected.iter().all(|row| actual.contains(row)));
+        }
+        assert_eq!(expected.len(), 255);
+        assert_eq!(practice_days(&db).unwrap().len(), 30);
+        assert!(month_rows(&db, 2026, 12).unwrap().is_empty());
     }
 
     #[test]
@@ -512,6 +574,19 @@ mod tests {
         assert_eq!(list(&db).unwrap().len(), 1);
         db.pragma_update(None, "user_version", 99).unwrap();
         assert!(migrate(&mut db).is_err());
+    }
+
+    #[test]
+    fn practice_days_count_each_eligible_completion_including_archived_history() {
+        let mut db = memory();
+        create(&db, "A", "2026-11-01").unwrap();
+        create(&db, "B", "2026-11-02").unwrap();
+        let ids = ids(&db);
+        for id in &ids {
+            toggle(&mut db, id, "2026-11-03", "2026-11-03").unwrap();
+        }
+        archive(&db, &ids[0], "2026-11-03").unwrap();
+        assert_eq!(practice_days(&db).unwrap(), vec![("2026-11-03".into(), 2)]);
     }
 
     #[test]

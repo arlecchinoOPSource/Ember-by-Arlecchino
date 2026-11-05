@@ -1,0 +1,37 @@
+name: Windows installer verification
+on:
+  push:
+    branches: [codex/issues-6-7]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run check
+      - id: installers
+        uses: actions/cache/restore@v4
+        with:
+          path: desktop/src-tauri/target/release/bundle
+          key: ember-installers-2022-${{ hashFiles('desktop/src/**', 'desktop/src-tauri/src/**', 'desktop/src-tauri/tauri.conf.json', 'desktop/src-tauri/build.rs', 'desktop/src-tauri/Cargo*', 'desktop/src-tauri/icons/**', 'desktop/src-tauri/capabilities/**', 'desktop/package*.json', 'desktop/index.html', 'desktop/vite.config.ts', 'packages/suite-ui/**', 'LICENSE') }}
+      - if: steps.installers.outputs.cache-hit != 'true'
+        run: npm run tauri build -- --bundles nsis,msi
+      - if: steps.installers.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: desktop/src-tauri/target/release/bundle
+          key: ${{ steps.installers.outputs.cache-primary-key }}
+      - name: Install, verify history on restart, uninstall and check retained data
+        run: ./e2e/windows-installers.ps1
