@@ -21,7 +21,7 @@ let nextId = 1;
 const newId = () => (nextId++).toString(16).padStart(32, '0');
 const habits: Habit[] = [];
 const completions = new Set<string>();
-export const preview = { failWrites: false };
+export const preview = { failWrites: false, failLoads: false };
 
 function seed() {
   const start = addDays(today(), -75);
@@ -92,8 +92,19 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
 
 export function install() {
   seed();
+  // Preview-only launch scenarios for UI tests; no native database is touched.
+  const params = new URLSearchParams(location.search);
+  const readDelay = Math.min(6000, Math.max(120, Number(params.get('startupDelay')) || 120));
+  preview.failLoads = params.get('startupFail') === 'true';
+  (globalThis as { emberPreview?: typeof preview }).emberPreview = preview;
+  const reads = new Set(['practice_days', 'habits_list', 'completions_month']);
   // A short delay makes saving states visible, as a real disk write would.
-  mockIPC((cmd, args) => new Promise((resolve, reject) => setTimeout(() => { try { resolve(handle(cmd, (args ?? {}) as Record<string, unknown>)); } catch (error) { reject(error); } }, 120)));
+  mockIPC((cmd, args) => new Promise((resolve, reject) => setTimeout(() => {
+    try {
+      if (reads.has(cmd) && preview.failLoads) throw new Error('Preview: local habit history could not open.');
+      resolve(handle(cmd, (args ?? {}) as Record<string, unknown>));
+    } catch (error) { reject(error); }
+  }, reads.has(cmd) ? readDelay : 120)));
   (globalThis as { isTauri?: boolean }).isTauri = true;
   const bar = document.createElement('div');
   bar.className = 'preview-bar';

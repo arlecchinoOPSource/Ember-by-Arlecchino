@@ -1,10 +1,10 @@
 import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
 import { Settings, ThemePicker } from './Settings';
-import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
+import { applyPreferences, playCompletion, playStartupCue, readPreferences, storePreferences } from './preferences';
 import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
+import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StartupScreen, StatusBar, SvgIcon, type Readiness, type StatusTone } from '@arlecchino/suite-ui';
 import { MONTH_NAMES, canShift, monthDates, monthStats, practiceStreaks, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
 import { HabitGrid } from './HabitGrid';
 import { NARROW_QUERY, useMediaQuery, usePanel, useToday } from './hooks';
@@ -41,6 +41,15 @@ export function App() {
   const settingsPanelRef = useRef<HTMLElement>(null);
   const [panel, setPanel] = useState<'themes' | 'settings' | null>(null);
   const isNative = isTauri();
+  // A launch decision, so changing Settings does not replay the screen mid-session.
+  const [startupVisible, setStartupVisible] = useState(() => isNative && preferences.startupScreen);
+  const startupCueAttempted = useRef(false);
+  const dismissStartup = useCallback(() => setStartupVisible(false), []);
+  useEffect(() => {
+    if (startupCueAttempted.current) return;
+    startupCueAttempted.current = true;
+    if (startupVisible && preferences.startupSound) playStartupCue();
+  }, []);
   const busy = status === 'loading' || status === 'saving';
 
   const load = useCallback(async (target: YearMonth) => {
@@ -119,6 +128,7 @@ export function App() {
   const tone: StatusTone = !isNative ? 'idle' : busy ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
   // Short and truthful, like Terminal's: SAVED only after SQLite committed.
   const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'OPENING' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'SAVED' : 'READY';
+  const startupReadiness: Readiness = status === 'load-error' ? 'error' : opened ? 'ready' : 'starting';
 
   function updatePreferences(next: typeof preferences) {
     setPreferences(next);
@@ -204,5 +214,6 @@ export function App() {
 
     <StatusBar tone={tone} status={statusText} />
     {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={reload}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
+    {startupVisible && <StartupScreen readiness={startupReadiness} animated={preferences.motion === 'full' && !reduced && startupReadiness === 'starting'} onDone={dismissStartup} appName="Ember" wordmark="EMBER" messages={{ opening: 'OPENING HABITS', slow: 'STILL OPENING HABITS', error: 'HABITS UNAVAILABLE' }} />}
   </AppShell>;
 }

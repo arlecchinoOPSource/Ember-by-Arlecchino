@@ -26,8 +26,17 @@ export function Settings({ value, update, stored, openThemes }: Props) {
         </label>)}
       </div></fieldset>
       <p className="settings-note">Reduced follows the device's reduced-motion preference. Off removes nonessential effects.</p>
+      <fieldset className="settings-segmented"><legend>Startup screen <span>default: On</span></legend><div>
+        {[true, false].map(enabled => <label key={String(enabled)} className={value.startupScreen === enabled ? 'selected' : ''}>
+          <input type="radio" name="startup-screen" value={enabled ? 'on' : 'off'} checked={value.startupScreen === enabled} onChange={() => update({ ...value, startupScreen: enabled })} />
+          <span>{enabled ? 'On' : 'Off'}</span>
+        </label>)}
+      </div></fieldset>
+      <p className="settings-note">Shown while local habits open; any key or click skips it. Applies from the next launch.</p>
+      <label className="settings-check"><input type="checkbox" checked={value.startupSound} onChange={e => update({ ...value, startupSound: e.target.checked })} /> Startup sound</label>
+      <p className="settings-note">Optional Ember cue on launch when the startup screen is on. Audio failure never delays opening.</p>
       <label className="settings-check"><input type="checkbox" checked={value.sound} onChange={e => update({ ...value, sound: e.target.checked })} /> Completion sound</label>
-      <p className="settings-note">A completion cue plays only when enabled. Startup and interface sounds are planned separately.</p>
+      <p className="settings-note">A completion cue plays only when enabled. Interface sounds are planned separately.</p>
       {!stored && <p className="settings-error" role="alert">Settings apply for this session. Allow local storage to keep them after closing Ember.</p>}
     </section>
   </div>;

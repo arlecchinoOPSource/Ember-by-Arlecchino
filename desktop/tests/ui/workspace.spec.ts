@@ -179,7 +179,7 @@ test('preferences survive reopening and optional audio failure leaves the comple
   await settings.click();
   await expect(page.getByLabel('Completion sound')).not.toBeChecked();
   await page.getByLabel('Completion sound').check();
-  await page.getByRole('radio', { name: 'Off' }).check();
+  await page.getByRole('group', { name: /Motion/ }).getByRole('radio', { name: 'Off' }).check();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Themes' }).click();
   await page.getByRole('button', { name: /Terminal Mint/ }).click();

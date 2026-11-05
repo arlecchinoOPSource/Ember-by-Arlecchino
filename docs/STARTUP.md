@@ -1,0 +1,9 @@
+# Ember startup screen and cue
+
+Issue #18 uses the neutral `StartupScreen` in `@arlecchino/suite-ui`, derived from Terminal's startup view. Ember supplies its own wordmark, orange theme and habit-loading messages. The screen reflects the three local SQLite reads required to open the month; it disappears as soon as they succeed. A failed read reveals the existing `LOAD ERROR` and **Retry loading** controls. Any key or click skips the visual screen, while the underlying load continues. The screen also leaves after ten seconds so a stalled read does not hide the loading state indefinitely.
+
+The startup screen defaults to **On** and startup sound to **Off**. Both preferences are stored with Ember's other device-local settings under `ember.preferences.v1`. Changing the screen preference applies on the next launch. Full motion animates while data loads; Reduced, Off and the operating system's reduced-motion setting remove the visual effect. Readiness never waits for the animation to finish.
+
+`desktop/src/assets/startup.wav` is an original Ember cue, synthesized for this repository from three short E4, B4 and E5 tones with a fade. It is 44.1 kHz, mono, 16-bit PCM, 1.05 seconds, and is distributed under this repository's MIT license. No Terminal recording or third-party audio was copied. Playback is attempted once per launch only when both the startup screen and startup sound are enabled. A failed or blocked playback is ignored and cannot delay local data loading.
+
+The browser preview can exercise startup with synthetic data using `?startupDelay=5600` or `?startupFail=true`; neither parameter is included in the native app. UI tests cover first launch, slow load, keyboard skip, retry, preference persistence and audio rejection. Offline startup and cue playback in installed macOS and Windows bundles still require platform verification before issue #18 or the 2.0 release is marked complete.
