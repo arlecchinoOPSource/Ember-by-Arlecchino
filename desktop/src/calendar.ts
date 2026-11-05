@@ -47,14 +47,16 @@ export const isEligible = (habit: Habit, date: string) => habit.startDate <= dat
  * so archived habits stay visible in the months they were active.
  */
 export function visibleHabits(habits: Habit[], dates: string[]): Habit[] {
-  return [...habits].sort((a, b) => a.sortOrder - b.sortOrder).filter(habit => dates.some(date => isEligible(habit, date)));
+  return [...habits].sort((a, b) => a.sortOrder - b.sortOrder).filter(habit => habit.archivedAt === null || dates.some(date => isEligible(habit, date)));
 }
 
 export type CellState = 'open' | 'future' | 'inactive';
 /** Why a cell can or cannot be toggled. */
 export function cellState(habit: Habit, date: string, today: string): CellState {
+  if (date > today) return 'future';
+  if (habit.archivedAt === null) return 'open';
   if (!isEligible(habit, date)) return 'inactive';
-  return date > today ? 'future' : 'open';
+  return 'open';
 }
 
 export type MonthStats = { completed: number; eligible: number; rate: number };

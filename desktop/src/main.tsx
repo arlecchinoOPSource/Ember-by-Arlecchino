@@ -10,10 +10,15 @@ import '@fontsource/ibm-plex-sans-condensed/latin-600-italic.css';
 import '@fontsource/ibm-plex-sans-condensed/latin-600.css';
 import { applyPreferences, readPreferences } from './preferences';
 import { App } from './App';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import './styles.css';
 
 // Before the first render, so Ember never appears in the wrong theme or motion level.
-applyPreferences(readPreferences());
+const launchPreferences = readPreferences();
+applyPreferences(launchPreferences);
+if (isTauri() && import.meta.env.MODE !== 'preview' && /Mac/.test(navigator.platform) && launchPreferences.startupScreen && launchPreferences.startupSound && !launchPreferences.muted && launchPreferences.volume > 0) {
+  void invoke('play_startup_sound', { volume: launchPreferences.volume }).catch(() => { /* An unavailable audio device never blocks launch. */ });
+}
 
 // Browser preview build only: synthetic in-memory data instead of native storage.
 if (import.meta.env.MODE === 'preview') (await import('./preview/sampleNative')).install();

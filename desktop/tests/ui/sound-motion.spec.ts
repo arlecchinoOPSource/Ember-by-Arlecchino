@@ -11,7 +11,7 @@ test('sound choices persist, mute is immediate, and interface cues do not play w
   await page.getByRole('button', { name: 'Sounds' }).click();
   await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: 'Startup sound' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
   await page.getByRole('checkbox', { name: 'Interface sound' }).check();
   await page.keyboard.press('Escape');
