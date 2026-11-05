@@ -1,0 +1,6 @@
+/* @arlecchino/suite-ui — the faces the shared chrome uses, bundled locally (no runtime network).
+   IBM Plex Mono and Orbitron are SIL Open Font License 1.1; see LICENSES.md. Apps import their
+   own extra faces (Terminal's writing fonts, its condensed brand mark) separately. */
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/orbitron/latin-700.css';
+@import '@fontsource/orbitron/latin-900.css';

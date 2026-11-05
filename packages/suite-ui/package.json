@@ -1,0 +1,27 @@
+{
+  "name": "@arlecchino/suite-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared chrome for the Arlecchino desktop suite: theme tokens, shell primitives, motion and startup.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./index.css": "./src/index.css",
+    "./tokens.css": "./src/tokens.css",
+    "./shell.css": "./src/shell.css",
+    "./startup.css": "./src/startup.css",
+    "./motion.css": "./src/motion.css",
+    "./fonts.css": "./src/fonts.css"
+  },
+  "files": ["src", "LICENSES.md", "CHANGELOG.md", "README.md"],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "compare:terminal": "node scripts/compare-terminal.mjs"
+  },
+  "peerDependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/orbitron": "5.3.0",
+    "react": "^19.0.0"
+  }
+}

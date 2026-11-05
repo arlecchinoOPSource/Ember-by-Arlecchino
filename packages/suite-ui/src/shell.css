@@ -1,0 +1,117 @@
+/* @arlecchino/suite-ui — shared application chrome ("Terminal 84" frame).
+   Rules are taken from Terminal 2.0.0 src/styles/app.css with the same class names, so
+   Terminal can adopt this file without markup changes. Colours come only from tokens.css.
+   App-specific layout (Terminal's writing page, Ember's grid) stays in each app. */
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--void); color: var(--text); font: .8125rem/1.6 var(--font-ui); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+::selection { background: var(--phosphor); color: var(--void); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border: 3px solid transparent; background-clip: padding-box; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--line-3); }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ── Shell ─────────────────────────────────────────────────────────────── */
+/* CRT scanlines, a vignette and phosphor bloom live in the chrome only. */
+.app-shell { height: 100%; min-height: 320px; padding: 6px; display: grid; grid-template-columns: var(--rail-width) minmax(0,1fr); gap: 6px; position: relative;
+  background: radial-gradient(140% 110% at 50% 45%, transparent 55%, rgba(0,0,0,.65) 100%), repeating-linear-gradient(0deg, transparent 0 2px, rgba(var(--dominant-rgb), .05) 2px 3px), radial-gradient(120% 90% at 50% 0%, var(--shell-bloom) 0%, var(--void) 60%), var(--void); }
+/* Chrome panels: faint scanlines under their content. .suite-frame is the generic framed panel. */
+.rail, .identity-strip, .toolbar, .workspace-footer, .popover, dialog, .suite-frame { background-image: repeating-linear-gradient(0deg, rgba(var(--dominant-rgb), .032) 0 1px, transparent 1px 3px); }
+/* Corner brackets, as on the reference terminals' technical frames. */
+.rail::after, .identity-strip::after, .suite-frame.bracketed::after, dialog::after, .startup-frame::after { content: ''; position: absolute; inset: -1px; pointer-events: none; z-index: 2;
+  background: linear-gradient(var(--phosphor), var(--phosphor)) top left / 12px 2px, linear-gradient(var(--phosphor), var(--phosphor)) top left / 2px 12px,
+    linear-gradient(var(--phosphor), var(--phosphor)) top right / 12px 2px, linear-gradient(var(--phosphor), var(--phosphor)) top right / 2px 12px,
+    linear-gradient(var(--phosphor), var(--phosphor)) bottom left / 12px 2px, linear-gradient(var(--phosphor), var(--phosphor)) bottom left / 2px 12px,
+    linear-gradient(var(--phosphor), var(--phosphor)) bottom right / 12px 2px, linear-gradient(var(--phosphor), var(--phosphor)) bottom right / 2px 12px;
+  background-repeat: no-repeat; filter: drop-shadow(0 0 3px var(--glow)); }
+dialog::after { inset: 0; }
+.suite-frame { position: relative; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 0 0 18px rgba(var(--dominant-rgb), .07); }
+
+/* ── Rail ──────────────────────────────────────────────────────────────── */
+.rail { position: relative; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); display: flex; flex-direction: column; align-items: stretch; padding: 0 0 6px; gap: 2px; box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 0 0 18px rgba(var(--dominant-rgb), .07); }
+/* --font-brand lets each app match its icon (Terminal: italic condensed "t"; Ember: Orbitron "e"). */
+.brand-mark { height: 46px; display: flex; justify-content: center; align-items: center; font: var(--brand-weight, 900) var(--brand-size, 1.25rem)/1 var(--font-brand, var(--font-display)); font-style: var(--brand-style, normal); color: var(--phosphor); text-shadow: 0 0 4px rgba(var(--dominant-rgb), .8), 0 0 16px var(--glow); border-bottom: 1px solid var(--line-2); margin-bottom: 4px; }
+.brand-mark span { margin-left: 3px; color: var(--phosphor-hi); }
+.rail-actions { display: grid; gap: 8px; justify-items: center; padding-top: 4px; }
+/* Rail buttons: icon-only, each in its own framed box. */
+.rail .icon-button { width: 40px; height: 40px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text-2); }
+.rail .icon-button:not(:disabled):hover { border-color: var(--phosphor-lo); color: var(--phosphor); }
+.rail .icon-button[aria-expanded='true'], .rail .icon-button[aria-pressed='true'] { background: var(--tint); border-color: var(--phosphor); color: var(--phosphor); box-shadow: 0 0 12px rgba(var(--dominant-rgb), .25), inset 0 0 8px rgba(var(--dominant-rgb), .12); }
+.rail .icon-button[aria-expanded='true'] svg, .rail .icon-button[aria-pressed='true'] svg { filter: drop-shadow(0 0 6px var(--glow)); }
+.icon-button { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid transparent; border-radius: var(--radius); background: transparent; padding: 0; color: var(--text-2); transition: background-color var(--motion-state) var(--ease), color var(--motion-state) var(--ease), border-color var(--motion-state) var(--ease); }
+.icon-button:not(:disabled):hover { background: var(--panel-2); color: var(--text); }
+.rail-bottom { margin-top: auto; align-self: center; }
+
+.workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0,1fr) auto; gap: 6px; }
+
+/* ── Identity strip and wordmark ───────────────────────────────────────── */
+.identity-strip { position: relative; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 4px 14px; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 0 0 18px rgba(var(--dominant-rgb), .07); }
+.wordmark-glow { display: inline-flex; filter: drop-shadow(0 0 2px rgba(var(--dominant-rgb), .7)) drop-shadow(0 0 14px rgba(var(--dominant-rgb), .4)); }
+/* Never starts fully transparent: if the window is inactive and WebKit pauses the animation, the logo stays visible. */
+.wordmark-glow.power-on { animation: power-on var(--motion-power-on) steps(1) 1; }
+@keyframes power-on { 0% { opacity: .35; } 12% { opacity: .9; } 18% { opacity: .2; } 30% { opacity: 1; } 38% { opacity: .5; } 46%, 100% { opacity: 1; } }
+.wordmark { font: 900 1.75rem/1 var(--font-display); letter-spacing: .05em; color: var(--phosphor);
+  background: linear-gradient(180deg, var(--phosphor-hi) 0%, var(--phosphor) 48%, var(--phosphor-lo) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-mask-image: linear-gradient(#000 0 52%, transparent 52%), repeating-linear-gradient(180deg, #000 0 2.6px, transparent 2.6px 3.8px);
+  mask-image: linear-gradient(#000 0 52%, transparent 52%), repeating-linear-gradient(180deg, #000 0 2.6px, transparent 2.6px 3.8px);
+  -webkit-mask-composite: source-over; mask-composite: add; }
+
+/* ── Status bar and save meter ─────────────────────────────────────────── */
+.workspace-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px 16px; flex-wrap: wrap; min-height: 28px; padding: 2px 10px; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); font-size: .6875rem; letter-spacing: .08em; color: var(--muted); }
+.save-status { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-transform: uppercase; }
+/* A small framed bar; it shows state, never fake progress. */
+.save-meter { position: relative; width: 60px; height: 10px; border: 1px solid var(--line-3); border-radius: 1px; overflow: hidden; }
+.save-meter > span { position: absolute; inset: 2px; background: var(--phosphor); box-shadow: 0 0 8px var(--glow); -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px); mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px); transition: background-color var(--motion-status) var(--ease), right var(--motion-status) steps(4, end); }
+.save-status[data-tone='idle'] .save-meter > span { right: 100%; }
+.save-status[data-tone='pending'] .save-meter { border-color: var(--amber); }
+.save-status[data-tone='pending'] .save-meter > span { background: var(--amber); right: 60%; box-shadow: none; }
+.save-status[data-tone='busy'] .save-meter > span { background: var(--amber); right: auto; width: 35%; box-shadow: none; animation: meter-sweep var(--motion-sweep) steps(8, end) infinite; }
+.save-status[data-tone='error'] { color: var(--danger); }
+.save-status[data-tone='error'] .save-meter { border-color: var(--danger); }
+.save-status[data-tone='error'] .save-meter > span { background: var(--danger); box-shadow: none; }
+@keyframes meter-sweep { from { left: -35%; } to { left: 100%; } }
+
+/* ── Panels (popovers) ─────────────────────────────────────────────────── */
+.popover-scrim { position: absolute; inset: 0; z-index: 9; background: rgba(var(--scrim-rgb), .62); }
+.popover { position: absolute; z-index: 10; left: calc(var(--rail-width) + 18px); bottom: 42px; width: min(340px,calc(100% - var(--rail-width) - 40px)); max-height: calc(100% - 54px); overflow: auto; padding: 0 20px 20px; border: 1px solid var(--line-3); border-radius: var(--radius); background-color: var(--panel); font: .875rem/1.65 var(--font-ui); color: var(--text);
+  box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 0 0 0 1px rgba(0,0,0,.6), 0 24px 70px rgba(0,0,0,.65), 0 0 32px rgba(var(--dominant-rgb), .12); }
+.popover header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 -20px 14px; padding: 2px 6px 2px 14px; min-height: 40px; border-bottom: 1px solid var(--line-2); background: linear-gradient(180deg, rgba(var(--dominant-rgb), .07), transparent); position: sticky; top: 0; z-index: 1; background-color: var(--panel); }
+.popover h2, .panel-title { margin: 0; font: 700 .75rem/1.4 var(--font-display); text-transform: uppercase; letter-spacing: .14em; color: var(--phosphor); text-shadow: 0 0 10px var(--glow); }
+.popover h2::before, .panel-title::before { content: '▍'; margin-right: 8px; color: var(--phosphor); }
+.popover p { margin: 16px 0 0; }
+.popover:focus-visible { outline: none; border-color: var(--phosphor-lo); }
+.popover header .icon-button { width: 30px; height: 30px; }
+.popover header .icon-button:hover { color: var(--phosphor); }
+.popover header .icon-button:focus-visible { outline-offset: -2px; }
+
+/* ── Buttons and dialogs ───────────────────────────────────────────────── */
+.suite-button, dialog button { min-height: 32px; padding: 5px 12px; border: 1px solid var(--line-3); border-radius: var(--radius); background: var(--panel-2); color: var(--text); font: .75rem var(--font-ui); letter-spacing: .06em; transition: border-color var(--motion-state) var(--ease), color var(--motion-state) var(--ease), background-color var(--motion-state) var(--ease); }
+.suite-button:not(:disabled):hover, dialog button:not(.destructive):not(:disabled):hover { border-color: var(--phosphor); color: var(--phosphor); }
+.suite-button.primary { background: var(--tint); border-color: var(--phosphor); color: var(--phosphor); }
+.destructive { color: var(--danger); border-color: var(--danger); background: rgba(var(--danger-rgb), .08); }
+.destructive:not(:disabled):hover { background: rgba(var(--danger-rgb), .16); }
+dialog { max-width: min(440px,calc(100% - 32px)); color: var(--text); background-color: var(--panel); border: 1px solid var(--line-3); border-radius: var(--radius); padding: 18px 20px 16px;
+  box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 0 30px 80px rgba(0,0,0,.7), 0 0 32px rgba(var(--dominant-rgb), .12); }
+dialog::backdrop { background: rgba(var(--scrim-rgb), .72); }
+dialog h2 { margin: 0 0 14px; font: 700 .8125rem/1.5 var(--font-display); letter-spacing: .08em; color: var(--text); }
+dialog p { margin: 0 0 12px; color: var(--text-2); }
+dialog form, .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.suite-input { min-height: 32px; width: 100%; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-3); border-radius: var(--radius); background: var(--text-drop); color: var(--text); }
+.suite-input:focus-visible { border-color: var(--phosphor); }
+
+/* ── Smaller windows ───────────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  :root { --rail-width: 48px; }
+  .rail .icon-button { width: 36px; height: 36px; }
+  .identity-strip { min-height: 38px; padding: 3px 10px; }
+  .wordmark { font-size: 1.2rem; }
+  .popover { left: calc(var(--rail-width) + 14px); width: calc(100% - var(--rail-width) - 22px); }
+}
