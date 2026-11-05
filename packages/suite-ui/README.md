@@ -2,7 +2,7 @@
 
 Shared chrome for the Arlecchino desktop suite. Terminal (journal) and Ember (habits) use the same theme tokens, frame, motion and startup screen; each app keeps its own navigation, data, persistence and installer.
 
-Version **0.1.0**, extracted from Terminal 2.0.0 without changing any token value. See [CHANGELOG](CHANGELOG.md).
+Version **0.2.0**, extracted from Terminal 2.0.0 without changing any token value. See [CHANGELOG](CHANGELOG.md).
 
 ## What is in it
 
@@ -10,7 +10,7 @@ Version **0.1.0**, extracted from Terminal 2.0.0 without changing any token valu
 | --- | --- |
 | `index.css` | Fonts, tokens, shell, startup and motion, in cascade order |
 | `tokens.css` | Four themes (`mint`, `blue`, `ember`, `amber`) on `[data-theme]`, plus fonts, radius, motion timings |
-| `shell.css` | `.app-shell`, `.rail`, `.brand-mark`, `.icon-button`, `.identity-strip`, `.wordmark`, `.workspace-footer`, `.save-status`, `.popover`, `dialog`, `.suite-frame`, `.suite-button`, `.suite-input` |
+| `shell.css` | `.app-shell`, `.rail`, `.brand-mark`, `.icon-button`, `.identity-strip`, `.wordmark`, `.toolbar`, `.tool-group`, `.tool-button`, `select`, `.workspace-footer`, `.save-status`, `.popover`, `dialog`, `.suite-frame`, `.suite-button`, `.suite-input` |
 | `motion.css` | Press, control-on, panel and dialog reveals, save meter states; `data-motion` levels and the OS override |
 | `startup.css` | The branded startup screen |
 | `themes.ts` | `THEMES`, `APP_DEFAULT_THEMES`, `parseTheme(value, fallback)`, `searchThemes`, `applyTheme` |

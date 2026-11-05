@@ -1,6 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@arlecchino/suite-ui/index.css';
+// Ember's reading faces, bundled locally (SIL OFL 1.1), as in Terminal.
+import '@fontsource/ibm-plex-sans/latin-400.css';
+import '@fontsource/ibm-plex-sans/latin-500.css';
+import '@fontsource/ibm-plex-sans/latin-600.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-400.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-600-italic.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-600.css';
 import { applyPreferences, readPreferences } from './preferences';
 import { App } from './App';
 import './styles.css';

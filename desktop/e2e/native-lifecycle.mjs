@@ -55,42 +55,42 @@ async function addHabit(session, name) {
     input.dispatchEvent(new Event('input', { bubbles: true }));`, [name]);
   await waitFor(session, 'return !document.querySelector(".add-form button").disabled', 'add button');
   await click(session, '.add-form button');
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), `saved ${name}`);
+  await waitFor(session, statusIs('SAVED'), `saved ${name}`);
 }
 
 try {
   const day = today();
   console.log(`Ember native lifecycle, data dir ${sandbox}`);
   let session = await launch();
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'first launch');
+  await waitFor(session, statusIs('READY'), 'first launch');
   await addHabit(session, 'Synthetic read');
   await addHabit(session, 'Synthetic walk');
   const cellFor = name => `button[data-date="${day}"][aria-label^="${name}, "]`;
   const cell = cellFor('Synthetic read');
   await click(session, cell);
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'toggle saved');
+  await waitFor(session, statusIs('SAVED'), 'toggle saved');
   assert(await script(session, `return document.querySelector(arguments[0]).getAttribute('aria-pressed') === 'true'`, [cell]), 'today is checked before restart');
   await click(session, 'button[aria-label="Move Synthetic read right"]');
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'reorder saved');
+  await waitFor(session, statusIs('SAVED'), 'reorder saved');
   await call('DELETE', `/session/${session}`);
 
   console.log('Reopening Ember');
   session = await launch();
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'second launch');
+  await waitFor(session, statusIs('READY'), 'second launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'true'`, [cell]), 'completion survived restart');
   const headings = await script(session, `return [...document.querySelectorAll('thead th .habit-name')].map(th => th.textContent)`);
   assert(JSON.stringify(headings) === JSON.stringify(['Synthetic walk', 'Synthetic read']), `order survived restart (${headings.join(', ')})`);
   await click(session, cell);
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'untoggle saved');
+  await waitFor(session, statusIs('SAVED'), 'untoggle saved');
   await call('DELETE', `/session/${session}`);
 
   session = await launch();
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'third launch');
+  await waitFor(session, statusIs('READY'), 'third launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'false'`, [cell]), 'removed completion stays removed after restart');
 
   // Rename is inline; archive is confirmed in an in-app <dialog>.
   await click(session, cell);
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'toggle before rename');
+  await waitFor(session, statusIs('SAVED'), 'toggle before rename');
   await click(session, 'button[aria-label="Manage habits"]');
   await click(session, 'button[aria-label="Rename Synthetic read"]');
   await waitFor(session, 'return !!document.getElementById(document.querySelector(".rename-form label")?.htmlFor ?? "")', 'rename field');
@@ -98,16 +98,16 @@ try {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Synthetic books');
     input.dispatchEvent(new Event('input', { bubbles: true }));`);
   await click(session, '.rename-form button.primary');
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'rename saved');
+  await waitFor(session, statusIs('SAVED'), 'rename saved');
   const renamedCell = cellFor('Synthetic books');
   await click(session, 'button[aria-label="Archive Synthetic walk"]');
   await waitFor(session, 'return !!document.querySelector("dialog[open]")', 'archive dialog');
   await click(session, 'dialog[open] .destructive');
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'archive saved');
+  await waitFor(session, statusIs('SAVED'), 'archive saved');
   await call('DELETE', `/session/${session}`);
 
   session = await launch();
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'fourth launch');
+  await waitFor(session, statusIs('READY'), 'fourth launch');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'true'`, [renamedCell]), 'rename kept the completion across restart');
   await click(session, 'button[aria-label="Manage habits"]');
   assert(await script(session, `return [...document.querySelectorAll('.habit-item > strong')].map(e => e.textContent).join() === 'Synthetic books'`), 'archived habit left the active list');
@@ -123,9 +123,9 @@ try {
   blocker.exec('ROLLBACK');
   blocker.close();
   await click(session, '.error-banner button');
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'reload after failure');
+  await waitFor(session, statusIs('READY'), 'reload after failure');
   await click(session, renamedCell);
-  await waitFor(session, statusIs('LOCAL DATA / SAVED'), 'write succeeds after the lock clears');
+  await waitFor(session, statusIs('SAVED'), 'write succeeds after the lock clears');
   await call('DELETE', `/session/${session}`);
 
   // A database from a newer Ember build opens to an actionable error, not a crash, and is untouched.
@@ -137,7 +137,7 @@ try {
   fixer.exec('PRAGMA user_version = 1');
   fixer.close();
   await click(session, '.error-banner button');
-  await waitFor(session, statusIs('LOCAL DATA / READY'), 'retry reopens the database');
+  await waitFor(session, statusIs('READY'), 'retry reopens the database');
   assert(await script(session, `return document.querySelector(arguments[0])?.getAttribute('aria-pressed') === 'false'`, [renamedCell]), 'data intact after retry');
   await call('DELETE', `/session/${session}`);
   console.log('Native lifecycle passed.');

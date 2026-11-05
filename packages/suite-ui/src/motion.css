@@ -3,10 +3,10 @@
    change; nothing runs while idle. Apps add their own selectors to the same keyframes. */
 
 /* Press: an instant 1px drop with a two-step highlight, released as soon as the pointer is. */
-:is(.icon-button, .suite-button, dialog button):not(:disabled):active { transform: translateY(1px); filter: brightness(1.35); animation: press-flash var(--motion-press) steps(2, end); }
+:is(.icon-button, .tool-button, .suite-button, dialog button):not(:disabled):active { transform: translateY(1px); filter: brightness(1.35); animation: press-flash var(--motion-press) steps(2, end); }
 @keyframes press-flash { from { filter: brightness(1.8); } }
 /* A control switching on flashes in three steps, like a lamp coming up. */
-.rail .icon-button[aria-expanded='true'], .rail .icon-button[aria-pressed='true'] { animation: control-on var(--motion-state) var(--steps-flash); }
+.rail .icon-button[aria-expanded='true'], .rail .icon-button[aria-pressed='true'], .tool-button[aria-pressed='true'] { animation: control-on var(--motion-state) var(--steps-flash); }
 @keyframes control-on { 0% { filter: brightness(1.9); } 50% { filter: brightness(1.3); } 100% { filter: none; } }
 /* Panels open top-down in bands; dialogs open outward from a centre line, like a CRT. */
 .popover { animation: panel-in var(--motion-popover) var(--steps-reveal); }

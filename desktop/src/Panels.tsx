@@ -108,11 +108,11 @@ export function Summary({ stats, monthName, streaks }: { streaks: { current: num
       <div className="progress-track" role="meter" aria-labelledby="rate-label" aria-valuemin={0} aria-valuemax={100} aria-valuenow={stats.rate} aria-valuetext={`${stats.rate}% of eligible habit-days in ${monthName} completed`}><span style={{ width: `${stats.rate}%` }} /></div>
       <small>Based on active habit-days through today.</small>
     </div>
-    <h3>Practice streaks</h3>
+    <h3 className="panel-subtitle">Practice streaks</h3>
     <dl className="stats">
       <div className="stat"><dt>CURRENT</dt><dd>{streaks.current}</dd></div>
       <div className="stat"><dt>LONGEST</dt><dd>{streaks.longest}</dd></div>
     </dl>
-    <small>Consecutive days with any completion across all months. Your current streak stays open through today.</small>
+    <small className="panel-note">Consecutive days with any completion across all months. Your current streak stays open through today.</small>
   </>;
 }

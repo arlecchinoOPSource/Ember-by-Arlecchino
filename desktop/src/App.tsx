@@ -4,7 +4,7 @@ import { Settings } from './Settings';
 import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
 import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppShell, BrandMark, IconButton, IdentityStrip, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
+import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
 import { MONTH_NAMES, canShift, monthDates, monthStats, practiceStreaks, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
 import { HabitGrid } from './HabitGrid';
 import { NARROW_QUERY, useMediaQuery, usePanel, useToday } from './hooks';
@@ -113,31 +113,34 @@ export function App() {
   });
 
   const tone: StatusTone = !isNative ? 'idle' : busy ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
-  const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY';
+  // Short and truthful, like Terminal's: SAVED only after SQLite committed.
+  const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'OPENING' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'SAVED' : 'READY';
 
-  const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />}>
+  // Settings sits at the bottom of the rail, as in Terminal.
+  const settingsButton = <IconButton icon="settings" label="Settings" className="rail-bottom" aria-pressed={leftOpen && leftMode === 'settings'} aria-controls="left-panel" onClick={() => openLeft('settings')} />;
+  const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />} bottom={settingsButton}>
     <IconButton icon="calendar" label="Calendar archive" aria-pressed={leftOpen && leftMode === 'archive'} aria-controls="left-panel" onClick={() => openLeft('archive')} />
     <button type="button" className="icon-button" aria-label="Manage habits" title="Manage habits" aria-pressed={leftOpen && leftMode === 'habits'} aria-controls="left-panel" onClick={() => openLeft('habits')}>
       <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
     </button>
     <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
-    <IconButton icon="settings" label="Settings" aria-pressed={leftOpen && leftMode === 'settings'} onClick={() => openLeft('settings')} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
-    <IdentityStrip wordmark="EMBER" powerOn={opened} end={<span className="identity-side">HABIT SYSTEM <b>/</b> {at.year}</span>} />
+    <IdentityStrip wordmark="EMBER" powerOn={opened} />
     <section className="toolbar" aria-label="Calendar controls">
-      <div className="month-controls">
-        <button type="button" onClick={() => go(shiftMonth(at, -1))} disabled={!canShift(at, -1)} aria-label={`Previous month, ${MONTH_NAMES[shiftMonth(at, -1).month - 1]} ${shiftMonth(at, -1).year}`} title={`Previous month (${mod}+←)`} aria-keyshortcuts={`${ariaMod}+ArrowLeft`}>←</button>
+      <div className="tool-group">
+        <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, -1))} disabled={!canShift(at, -1)} aria-label={`Previous month, ${MONTH_NAMES[shiftMonth(at, -1).month - 1]} ${shiftMonth(at, -1).year}`} title={`Previous month (${mod}+←)`} aria-keyshortcuts={`${ariaMod}+ArrowLeft`}><Icon name="chevron-left" /></button>
         <h1 className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
-        <button type="button" onClick={() => go(shiftMonth(at, 1))} disabled={!canShift(at, 1)} aria-label={`Next month, ${MONTH_NAMES[shiftMonth(at, 1).month - 1]} ${shiftMonth(at, 1).year}`} title={`Next month (${mod}+→)`} aria-keyshortcuts={`${ariaMod}+ArrowRight`}>→</button>
-        <div className="toolbar-year" role="group" aria-label="Year">
-          <button type="button" onClick={() => go(withYear(at, at.year - 1))} aria-label={`Previous year, ${monthName} ${at.year - 1}`} title={`Previous year (${mod}+Shift+←)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowLeft`}>«</button>
-          <button type="button" onClick={() => go(withYear(at, at.year + 1))} aria-label={`Next year, ${monthName} ${at.year + 1}`} title={`Next year (${mod}+Shift+→)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowRight`}>»</button>
-        </div>
-        <button type="button" className={onThisMonth ? 'today-button on-today' : 'today-button'} onClick={goToday} title={`Today (${mod}+T)`} aria-keyshortcuts={`${ariaMod}+T`}>Today</button>
+        <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, 1))} disabled={!canShift(at, 1)} aria-label={`Next month, ${MONTH_NAMES[shiftMonth(at, 1).month - 1]} ${shiftMonth(at, 1).year}`} title={`Next month (${mod}+→)`} aria-keyshortcuts={`${ariaMod}+ArrowRight`}><Icon name="chevron-right" /></button>
       </div>
-      <span className="toolbar-hint">ONE DAY AT A TIME</span>
+      <div className="tool-group" role="group" aria-label="Year">
+        <button type="button" className="tool-button" onClick={() => go(withYear(at, at.year - 1))} aria-label={`Previous year, ${monthName} ${at.year - 1}`} title={`Previous year (${mod}+Shift+←)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowLeft`}><SvgIcon><path d="m12 5-7 7 7 7M19 5l-7 7 7 7" /></SvgIcon></button>
+        <button type="button" className="tool-button" onClick={() => go(withYear(at, at.year + 1))} aria-label={`Next year, ${monthName} ${at.year + 1}`} title={`Next year (${mod}+Shift+→)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowRight`}><SvgIcon><path d="m5 5 7 7-7 7M12 5l7 7-7 7" /></SvgIcon></button>
+      </div>
+      <div className="tool-group">
+        <button type="button" className="tool-button tool-text today-button" aria-pressed={onThisMonth} onClick={goToday} title={`Today (${mod}+T)`} aria-keyshortcuts={`${ariaMod}+T`}>Today</button>
+      </div>
     </section>
 
     <div className="content" data-left={leftOpen ? 'open' : 'closed'} data-right={rightOpen ? 'open' : 'closed'}>
@@ -173,7 +176,7 @@ export function App() {
       </SidePanel>
     </div>
 
-    <StatusBar tone={tone} status={statusText}><span>{monthName.toUpperCase()} · {dates.length} DAYS</span></StatusBar>
+    <StatusBar tone={tone} status={statusText} />
     {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={reload}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
   </AppShell>;
 }

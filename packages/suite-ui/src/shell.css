@@ -64,6 +64,22 @@ dialog::after { inset: 0; }
   mask-image: linear-gradient(#000 0 52%, transparent 52%), repeating-linear-gradient(180deg, #000 0 2.6px, transparent 2.6px 3.8px);
   -webkit-mask-composite: source-over; mask-composite: add; }
 
+/* ── Toolbar and tool buttons (Terminal 2.0.0 sizes) ──────────────────── */
+.toolbar { min-height: 42px; padding: 4px 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 0 18px rgba(var(--dominant-rgb), .05); }
+.tool-group { display: flex; align-items: center; gap: 2px; padding: 0 7px; border-left: 1px solid var(--line); min-height: 30px; }
+.toolbar > .tool-group:first-child { border-left: 0; padding-left: 2px; }
+.tool-button { width: 30px; height: 30px; padding: 5px; border: 1px solid transparent; border-radius: var(--radius); background: none; display: inline-flex; align-items: center; justify-content: center; font-size: .9375rem; color: var(--text-2); position: relative; transition: background-color var(--motion-state) var(--ease), color var(--motion-state) var(--ease); }
+.tool-button:not(:disabled):hover { background: var(--panel-2); color: var(--text); }
+/* Active: tinted fill, accent ink and an inset bar, not colour alone. */
+.tool-button[aria-pressed='true'] { background: var(--tint); color: var(--phosphor); box-shadow: inset 0 -2px 0 var(--phosphor), 0 0 10px rgba(var(--dominant-rgb), .18); }
+.tool-button[aria-pressed='true'] svg { filter: drop-shadow(0 0 4px var(--glow)); }
+.tool-text { width: auto; padding: 0 8px; font-size: .6875rem; letter-spacing: .08em; }
+select { appearance: none; -webkit-appearance: none; background-color: var(--panel-2); color: var(--text); border: 1px solid var(--line-3); border-radius: var(--radius); font: .8125rem var(--font-ui);
+  background-image: var(--select-arrow); background-repeat: no-repeat; background-position: right 9px center; padding: 2px 26px 2px 9px; min-height: 32px; transition: border-color var(--motion-state) var(--ease); }
+select:not(:disabled):hover { border-color: var(--phosphor-lo); }
+select:disabled { opacity: .45; }
+option { background: var(--panel-2); color: var(--text); }
+
 /* ── Status bar and save meter ─────────────────────────────────────────── */
 .workspace-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px 16px; flex-wrap: wrap; min-height: 28px; padding: 2px 10px; background-color: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); font-size: .6875rem; letter-spacing: .08em; color: var(--muted); }
 .save-status { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-transform: uppercase; }

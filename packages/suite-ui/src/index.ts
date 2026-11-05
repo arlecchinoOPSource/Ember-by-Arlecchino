@@ -1,5 +1,5 @@
 /** @arlecchino/suite-ui — shared chrome for the Arlecchino desktop suite (Terminal, Ember). */
-export const SUITE_UI_VERSION = '0.1.0';
+export const SUITE_UI_VERSION = '0.2.0';
 export * from './themes';
 export * from './motion';
 export * from './startup';
