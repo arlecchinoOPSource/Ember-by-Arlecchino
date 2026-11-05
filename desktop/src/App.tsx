@@ -3,14 +3,15 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 
 type Habit = { id: string; name: string; sortOrder: number; startDate: string; archivedAt: string | null };
 type Completion = [habitId: string, date: string];
-type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'error';
+type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'load-error' | 'save-error';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const now = new Date();
 const dateKey = (year: number, month: number, day: number) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 const localToday = () => dateKey(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
 const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
-const isEligible = (habit: Habit, date: string) => habit.startDate <= date && (habit.archivedAt === null || date < habit.archivedAt);
+// A habit is eligible from its start date through its archive date (its last active day), inclusive.
+const isEligible = (habit: Habit, date: string) => habit.startDate <= date && (habit.archivedAt === null || date <= habit.archivedAt);
 
 export function App() {
   const [year, setYear] = useState(now.getFullYear());
@@ -35,15 +36,16 @@ export function App() {
     setStatus('loading');
     Promise.all([invoke<Habit[]>('habits_list'), invoke<Completion[]>('completions_month', { year, month })])
       .then(([items, rows]) => { if (live) { setHabits(items); setCompletions(new Set(rows.map(([id, date]) => `${id}:${date}`))); setStatus('ready'); setError(''); } })
-      .catch(reason => { if (live) { setStatus('error'); setError(String(reason)); } });
+      .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); } });
     return () => { live = false; };
   }, [year, month, native]);
 
   async function change(action: () => Promise<void>) {
     if (busy || !native) return;
     setStatus('saving'); setError('');
+    // 'saved' is only shown after the native command returns, i.e. after SQLite committed.
     try { await action(); setStatus('saved'); }
-    catch (reason) { setStatus('error'); setError(String(reason)); }
+    catch (reason) { setStatus('save-error'); setError(String(reason)); }
   }
   function shiftMonth(offset: number) {
     const target = new Date(year, month - 1 + offset, 1);
@@ -79,7 +81,7 @@ export function App() {
   const todayKey = localToday();
   const visible = habits.filter(habit => dates.some(date => isEligible(habit, date)));
   const active = habits.filter(habit => habit.archivedAt === null);
-  const completed = dates.reduce((sum, date) => sum + visible.filter(habit => completions.has(`${habit.id}:${date}`)).length, 0);
+  const completed = dates.reduce((sum, date) => sum + (date <= todayKey ? visible.filter(habit => isEligible(habit, date) && completions.has(`${habit.id}:${date}`)).length : 0), 0);
   const eligibleElapsed = dates.reduce((sum, date) => sum + (date <= todayKey ? visible.filter(habit => isEligible(habit, date)).length : 0), 0);
   const rate = eligibleElapsed ? Math.round(completed / eligibleElapsed * 100) : 0;
 
@@ -127,8 +129,8 @@ export function App() {
 
         <aside className="right-panel"><p className="panel-kicker">MONTHLY / {monthNames[month - 1]!.toUpperCase()}</p><div className="stat"><span>COMPLETIONS</span><strong>{completed}</strong></div><div className="stat"><span>ELIGIBLE DAYS</span><strong>{eligibleElapsed}</strong></div><div className="rate"><div><span>PROGRESS</span><strong>{rate}%</strong></div><div className="progress-track"><span style={{ width: `${rate}%` }} /></div><small>Based on active habit-days through today.</small></div><div className="right-note">Small things,<br />done often<span>.</span></div></aside>
       </div>
-      <footer className="statusbar"><span role="status" aria-live="polite" className={`status ${status}`}><i />{!native ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'error' ? 'SAVE ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY'}</span><span>{monthNames[month - 1]!.toUpperCase()} · {dates.length} DAYS</span></footer>
-      {error && <div className="error-banner" role="alert">{error} <button onClick={() => { setError(''); void loadHabits().then(() => loadMonth(year, month)).then(() => setStatus('ready')).catch(reason => { setStatus('error'); setError(String(reason)); }); }}>Retry loading</button></div>}
+      <footer className="statusbar"><span role="status" aria-live="polite" className={`status ${status}`}><i />{!native ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY'}</span><span>{monthNames[month - 1]!.toUpperCase()} · {dates.length} DAYS</span></footer>
+      {error && <div className="error-banner" role="alert">{error} <button onClick={() => { setError(''); setStatus('loading'); void loadHabits().then(() => loadMonth(year, month)).then(() => setStatus('ready')).catch(reason => { setStatus('load-error'); setError(String(reason)); }); }}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
     </div>
   </div>;
 }
