@@ -1,5 +1,5 @@
 import { Icon } from '@arlecchino/suite-ui';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MAX_YEAR, MIN_YEAR, MONTH_NAMES, type Habit, type MonthStats, type YearMonth } from './calendar';
 
 /** A side panel that collapses to a slim strip; the strip keeps one button to bring it back. */
@@ -34,11 +34,10 @@ export function ArchiveList({ at, today, busy, onSelect, onYear }: { at: YearMon
   </>;
 }
 
-type HabitActions = { onCreate: (name: string) => Promise<boolean>; onRename: (habit: Habit, name: string) => Promise<boolean>; onMove: (habit: Habit, direction: -1 | 1) => void; onArchive: (habit: Habit) => void };
+type HabitActions = { onRename: (habit: Habit, name: string) => Promise<boolean>; onMove: (habit: Habit, direction: -1 | 1) => void; onArchive: (habit: Habit) => void };
 
 /** Create, rename (inline), reorder and archive. Archived habits are listed with their last day. */
-export function HabitManager({ habits, busy, native, addRef, ...actions }: { habits: Habit[]; busy: boolean; native: boolean; addRef: RefObject<HTMLInputElement | null> } & HabitActions) {
-  const [name, setName] = useState('');
+export function HabitManager({ habits, busy, ...actions }: { habits: Habit[]; busy: boolean } & HabitActions) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [confirming, setConfirming] = useState<Habit | null>(null);
@@ -47,10 +46,6 @@ export function HabitManager({ habits, busy, native, addRef, ...actions }: { hab
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (confirming) dialog.current?.showModal(); else dialog.current?.close(); }, [confirming]);
 
-  async function add(event: FormEvent) {
-    event.preventDefault();
-    if (name.trim() && await actions.onCreate(name)) setName('');
-  }
   async function saveRename(habit: Habit) {
     const value = draft.trim();
     if (!value || value === habit.name) { setRenaming(null); return; }
@@ -59,11 +54,6 @@ export function HabitManager({ habits, busy, native, addRef, ...actions }: { hab
   const focusRow = (id: string) => requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-rename="${id}"]`)?.focus());
 
   return <>
-    <form className="add-form" onSubmit={add}>
-      <label htmlFor="new-habit">New habit</label>
-      <input id="new-habit" ref={addRef} className="suite-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name a habit" disabled={!native} />
-      <button className="suite-button primary" disabled={busy || !native || !name.trim()}>Add habit</button>
-    </form>
     <ul className="habit-list" aria-label="Active habits, in column order">{active.map((habit, index) => <li className="habit-item" key={habit.id}>
       {renaming === habit.id
         ? <form className="rename-form" onSubmit={e => { e.preventDefault(); void saveRename(habit); }}>
