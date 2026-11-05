@@ -29,3 +29,21 @@ Checks: the `.ico` holds 16, 24, 32, 48, 64 and 256 px and the `.icns` 16–512 
 ## Comparison screenshots
 
 `screenshots/issue-9/compare-1160.png` and `compare-680.png` place Terminal 2.0.0 (Ember Orange theme, its UI-test mock) beside Ember (preview data) at 1160×780 and the 680×500 minimum.
+
+## Issue 14 shell review
+
+The review starts from merged issue 9. Its rail (56 px), brand row (46 px), rail controls (40 px squares on an 8 px gap), identity strip (44 px minimum), toolbar (42 px minimum), toolbar buttons (30 px with 5 px padding), 6 px shell gutters and 1 px frame borders matched Terminal in the issue 9 baseline. The following changes are local to Ember.
+
+| Detail | Issue 9 | Review build |
+| --- | --- | --- |
+| Panel heading inset | 12 px left, 6 px right | Terminal's 14 px left, 6 px right |
+| Panel body side inset | 12 px | 12–20 px, increasing with window width toward Terminal's 20 px |
+| Habit action buttons at standard text size | 28 × 25.6 px | 26 × 26 px |
+| Panel toggle alignment | Font chevron on its text baseline | Centred 16 px suite SVG in a 26 px control |
+| Window minimum in CSS | 640 px forced on the page | Layout fits the available viewport when zoomed |
+
+Calendar cells keep their 40 px rows and sticky date column. Extra habits scroll inside the grid. Below 900 px, side panels open over the grid; their collapsed strips keep navigation available.
+
+The rail uses the original type-based mark, with 40 px buttons and an 8 px gap. Calendar navigation icons use 26 px buttons.
+
+[Normal](screenshots/issue-14/layout-1160.png), [narrow](screenshots/issue-14/layout-840.png) and [minimum](screenshots/issue-14/layout-680.png) comparisons show the same synthetic WebKit preview before and after. The issue 9 screenshots above include Terminal at normal and minimum widths. The [installed macOS window](screenshots/issue-14/mac-review.png) uses a separate November test profile. Packaged Windows appearance awaits verification.

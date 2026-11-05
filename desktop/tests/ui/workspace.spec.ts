@@ -193,7 +193,7 @@ test('preferences survive reopening and optional audio failure leaves the comple
   await expect(statusBar(page)).toHaveText('SAVED');
 });
 
-test('Terminal parity: centred wordmark, no decorative text, Settings at the rail bottom', async ({ page }) => {
+test('Terminal parity: centred wordmark, no decorative text, Settings at the rail bottom', async ({ page, browserName }) => {
   for (const size of [{ width: 1160, height: 780 }, { width: 680, height: 500 }]) {
     await page.setViewportSize(size);
     await open(page);
@@ -211,7 +211,8 @@ test('Terminal parity: centred wordmark, no decorative text, Settings at the rai
   }
   // Keyboard: Settings is reachable and shows a visible focus ring.
   await page.getByRole('button', { name: 'Add habit' }).focus();
-  await page.keyboard.press('Tab');
+  // macOS WebKit uses Option-Tab to include buttons with default keyboard preferences.
+  await page.keyboard.press(browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
   const settings = page.getByRole('button', { name: 'Settings' });
   await expect(settings).toBeFocused();
   expect(await settings.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
@@ -222,4 +223,22 @@ test('Terminal parity: centred wordmark, no decorative text, Settings at the rai
   expect(await font('thead th')).toContain('IBM Plex Sans');
   expect(await font('.month-title')).toContain('IBM Plex Sans Condensed');
   expect(await font('.wordmark')).toContain('Orbitron');
+});
+
+test('minimum width at 150% keeps navigation reachable and wide habits scroll within the grid', async ({ page }) => {
+  await page.setViewportSize({ width: 680, height: 500 });
+  await open(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+  for (const control of await page.locator('.rail button, .toolbar button, .panel-toggle').all()) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(681);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(501);
+  }
+  const last = page.locator('tbody tr').first().getByRole('button').last();
+  await last.focus();
+  await expect(last).toBeFocused();
+  await expect(last).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(680);
 });

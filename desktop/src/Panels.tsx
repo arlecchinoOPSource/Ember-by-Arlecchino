@@ -1,13 +1,14 @@
+import { Icon } from '@arlecchino/suite-ui';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { MAX_YEAR, MIN_YEAR, MONTH_NAMES, type Habit, type MonthStats, type YearMonth } from './calendar';
 
 /** A side panel that collapses to a slim strip; the strip keeps one button to bring it back. */
 export function SidePanel({ id, side, title, open, onOpenChange, strip, children }: { id: string; side: 'left' | 'right'; title: string; open: boolean; onOpenChange: (open: boolean) => void; strip?: ReactNode; children: ReactNode }) {
-  const arrow = (side === 'left') === open ? '‹' : '›';
+  const arrow = (side === 'left') === open ? 'chevron-left' : 'chevron-right';
   return <aside className={`side-panel ${side}-panel suite-frame`} data-open={open} aria-label={title}>
     <div className="side-panel-head">
       {open && <h2 className="panel-title" id={`${id}-title`}>{title}</h2>}
-      <button type="button" className="panel-toggle" aria-expanded={open} aria-controls={id} title={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} aria-label={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} onClick={() => onOpenChange(!open)}>{arrow}</button>
+      <button type="button" className="panel-toggle" aria-expanded={open} aria-controls={id} title={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} aria-label={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} onClick={() => onOpenChange(!open)}><Icon name={arrow} /></button>
     </div>
     <div id={id} className="side-panel-body" hidden={!open}>{children}</div>
     {!open && <button type="button" className="panel-strip" onClick={() => onOpenChange(true)} aria-hidden="true" tabIndex={-1}><span>{strip ?? title}</span></button>}
