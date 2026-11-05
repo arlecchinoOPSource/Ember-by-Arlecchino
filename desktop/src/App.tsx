@@ -38,6 +38,7 @@ export function App() {
   const addRef = useRef<HTMLInputElement>(null);
   const themesRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLElement>(null);
   const [panel, setPanel] = useState<'themes' | 'settings' | null>(null);
   const isNative = isTauri();
   const busy = status === 'loading' || status === 'saving';
@@ -123,6 +124,18 @@ export function App() {
     setPreferences(next);
     setPreferencesStored(storePreferences(next));
   }
+  useEffect(() => {
+    if (panel !== 'settings') return;
+    settingsPanelRef.current?.focus();
+    function onEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+      event.preventDefault();
+      setPanel(null);
+      settingsRef.current?.focus();
+    }
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [panel]);
   // Terminal keeps Themes in the rail and Settings at its bottom.
   const settingsButton = <IconButton ref={settingsRef} icon="settings" label="Settings" className="rail-bottom" aria-expanded={panel === 'settings'} aria-controls="settings-panel" onClick={() => setPanel(current => current === 'settings' ? null : 'settings')} />;
   const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />} bottom={settingsButton}>
@@ -130,17 +143,20 @@ export function App() {
     <button type="button" className="icon-button" aria-label="Manage habits" title="Manage habits" aria-pressed={leftOpen && leftMode === 'habits'} aria-controls="left-panel" onClick={() => openLeft('habits')}>
       <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
     </button>
-    <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
     <IconButton ref={themesRef} icon="themes" label="Themes" aria-expanded={panel === 'themes'} aria-controls="theme-panel" onClick={() => setPanel(current => current === 'themes' ? null : 'themes')} />
+    <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
     {panel === 'themes' && <Popover id="theme-panel" title="Themes" className="ember-theme-popover" scrim onClose={() => setPanel(null)} triggerRef={themesRef}><ThemePicker current={preferences.theme} onSelect={theme => updatePreferences({ ...preferences, theme })} /></Popover>}
-    {panel === 'settings' && <Popover id="settings-panel" title="Settings" className="ember-settings-popover" scrim onClose={() => setPanel(null)} triggerRef={settingsRef}>
-      <Settings value={preferences} stored={preferencesStored} update={updatePreferences} openThemes={() => setPanel('themes')} />
-      {isNative && import.meta.env.MODE !== 'preview' && <div className="settings-data"><h3 className="settings-section">DATA</h3><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></div>}
-      <p className="settings-about">Ember keeps habits and settings on this device. Check the save status before closing.</p>
-    </Popover>}
+    {panel === 'settings' && <aside id="settings-panel" ref={settingsPanelRef} className="settings-dock suite-frame" aria-labelledby="settings-panel-title" tabIndex={-1}>
+      <header className="settings-dock-head"><h2 id="settings-panel-title">Settings</h2><button type="button" className="icon-button" aria-label="Close settings" onClick={() => { setPanel(null); settingsRef.current?.focus(); }}><Icon name="close" /></button></header>
+      <div className="settings-dock-body">
+        <Settings value={preferences} stored={preferencesStored} update={updatePreferences} openThemes={() => setPanel('themes')} />
+        {isNative && import.meta.env.MODE !== 'preview' && <div className="settings-data"><h3 className="settings-section">DATA</h3><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></div>}
+        <p className="settings-about">Ember keeps habits and settings on this device. Check the save status before closing.</p>
+      </div>
+    </aside>}
     <IdentityStrip wordmark="EMBER" powerOn={opened} />
     <section className="toolbar" aria-label="Calendar controls">
       <div className="tool-group">
