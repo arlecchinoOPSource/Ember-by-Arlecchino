@@ -1,14 +1,14 @@
 # Ember sound and motion for 2.0
 
-Issues #19 and #20 share the controls in Ember's Settings. A separate Sounds button in the rail offers quick access to the same sound settings. All preferences stay on this device under `ember.preferences.v1`. Existing settings retain their values; new sound controls default to quiet.
+Issues #19 and #20 share the controls in Ember's Settings. A separate Sounds button in the rail offers quick access to the same sound settings. All preferences stay on this device under `ember.preferences.v1`. Existing settings retain their values; Interface and Completion default to quiet.
 
 ## Sound
 
-Startup, Interface, and Completion are independent opt-in channels. The Startup cue requires the startup screen. Interface covers control clicks and error feedback, but never typing, keyboard navigation, or habit grid cells. Completion plays only after a successful native save. Master volume is 0–100%; **Mute all sounds** takes effect immediately and takes precedence over every channel and preview. Sound follows the operating system's output volume and mute.
+Startup, Interface, and Completion are independent channels. Startup is on for a new installation and requires the startup screen; explicit existing Off choices persist. Interface and Completion are opt-in. Interface covers control clicks and error feedback, but never typing, keyboard navigation, or habit grid cells. Completion plays only after a successful native save. Master volume is 0–100%; **Mute all sounds** takes effect immediately and takes precedence over every channel and preview. Sound follows the operating system's output volume and mute.
 
 `desktop/src/soundManager.ts` handles all playback. It keeps at most one cue active, stops the previous cue before a new one, suppresses repeated same-cue clicks within 85 ms, and ignores playback rejection. A cue cannot delay or alter a SQLite operation. Previews play on an explicit button press, even when that channel is off, unless master mute or zero volume is set.
 
-The four locally bundled cues are `desktop/src/assets/startup.wav`, `interface.wav`, `completion.wav`, and `error.wav`. They are original synthesized PCM sounds made for Ember and distributed under this repository's MIT license. No Terminal recording, keyboard sound, remote audio, or third-party sample is included. The Terminal audio asset grant was for Terminal, so its recordings were not brought into Ember.
+The four locally bundled cues are `desktop/src/assets/startup.wav`, `interface.wav`, `completion.wav`, and `error.wav`. Interface, Completion, and Error are original synthesized PCM sounds made for Ember under this repository's MIT license. At the product owner's explicit request, Startup is the unmodified Arlecchino Terminal recording; its provenance and hash are in [STARTUP.md](STARTUP.md). No keyboard sound, remote audio, or third-party sample is included.
 
 ## Motion inventory
 

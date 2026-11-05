@@ -5,6 +5,7 @@ import { SoundPanel } from './SoundPanel';
 import { applyPreferences, readPreferences, storePreferences } from './preferences';
 import { sounds } from './sounds';
 import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StartupScreen, StatusBar, SvgIcon, type Readiness, type StatusTone } from '@arlecchino/suite-ui';
 import { MONTH_NAMES, canShift, monthDates, monthStats, practiceStreaks, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
@@ -63,6 +64,22 @@ export function App() {
     if (startupVisible) sounds.play('startup');
   }, []);
   const busy = status === 'loading' || status === 'saving';
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  useEffect(() => {
+    if (!isNative || import.meta.env.MODE === 'preview') return;
+    let disposed = false;
+    let closing = false;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow().onCloseRequested(event => {
+      event.preventDefault();
+      if (closing || statusRef.current === 'saving') return;
+      closing = true;
+      const played = sounds.play('close');
+      window.setTimeout(() => { if (!disposed) void getCurrentWindow().destroy(); }, played ? 6000 : 0);
+    }).then(stop => { if (disposed) stop(); else unlisten = stop; }).catch(() => { /* Native close handling is unavailable. */ });
+    return () => { disposed = true; unlisten?.(); };
+  }, [isNative]);
 
   const load = useCallback(async (target: YearMonth) => {
     const [items, rows, practice] = await Promise.all([native.listHabits(), native.monthCompletions(target.year, target.month), native.practiceDays()]);
@@ -229,6 +246,6 @@ export function App() {
 
     <StatusBar tone={tone} status={statusText} />
     {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={reload}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
-    {startupVisible && <StartupScreen readiness={startupReadiness} animated={preferences.motion === 'full' && !reduced && startupReadiness === 'starting'} onDone={dismissStartup} appName="Ember" wordmark="EMBER" messages={{ opening: 'OPENING HABITS', slow: 'STILL OPENING HABITS', error: 'HABITS UNAVAILABLE' }} />}
+    {startupVisible && <StartupScreen readiness={startupReadiness} animated={preferences.motion === 'full' && !reduced} onDone={dismissStartup} appName="Ember" wordmark="EMBER" messages={{ opening: 'OPENING HABITS', slow: 'STILL OPENING HABITS', error: 'HABITS UNAVAILABLE' }} />}
   </AppShell>;
 }

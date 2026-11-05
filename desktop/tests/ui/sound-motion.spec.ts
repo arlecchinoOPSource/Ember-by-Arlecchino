@@ -10,7 +10,7 @@ test('sound choices persist, mute is immediate, and interface cues do not play w
   await expect(page.locator('.save-status')).toHaveText('READY');
   await page.getByRole('button', { name: 'Sounds' }).click();
   await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: 'Startup sound' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Startup sound' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Interface sound' })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
   await page.getByRole('checkbox', { name: 'Interface sound' }).check();
@@ -58,4 +58,24 @@ test('Full, Reduced, Off, and OS reduced motion keep navigation and focus usable
   await next.click(); await next.click(); await next.click();
   await expect(next).toBeFocused();
   await expect(page.locator('.month-title')).toHaveText('March 2027');
+});
+
+test('Themes and Sounds popups open in the middle while Settings stays docked', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.startup')).toHaveCount(0);
+  for (const [button, panel] of [['Sounds', '.ember-sounds-popover'], ['Themes', '.ember-theme-popover']] as const) {
+    await page.getByRole('button', { name: button }).click();
+    const offset = await page.locator(panel).evaluate(element => {
+      const box = element.getBoundingClientRect();
+      const shell = document.querySelector('.app-shell')!.getBoundingClientRect();
+      return { x: Math.abs(box.left + box.width / 2 - (shell.left + shell.width / 2)), y: Math.abs(box.top + box.height / 2 - (shell.top + shell.height / 2)) };
+    });
+    expect(offset.x).toBeLessThan(2);
+    expect(offset.y).toBeLessThan(2);
+    await page.keyboard.press('Escape');
+  }
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.locator('.settings-dock')).toBeVisible();
+  const dockOffset = await page.locator('.settings-dock').evaluate(element => element.getBoundingClientRect().left - element.parentElement!.getBoundingClientRect().left);
+  expect(Math.abs(dockOffset)).toBeLessThan(2);
 });

@@ -1,5 +1,5 @@
 /** Ember-only local cues. No keyboard events, remote URLs, or journal audio enter this manager. */
-export type Cue = 'startup' | 'interface' | 'completion' | 'error';
+export type Cue = 'startup' | 'close' | 'interface' | 'completion' | 'error';
 export type SoundSettings = { muted: boolean; volume: number; startupSound: boolean; interfaceSound: boolean; sound: boolean };
 
 export class SoundManager {
@@ -34,6 +34,7 @@ export class SoundManager {
     try {
       const audio = this.create(this.urls[cue]);
       audio.volume = this.settings.volume / 100;
+      if (cue === 'startup') audio.playbackRate = 1.25;
       audio.onended = () => { if (this.active === audio) { this.active = null; this.activeCue = null; } };
       this.active = audio;
       this.activeCue = cue;
@@ -51,7 +52,7 @@ export class SoundManager {
   }
 
   private enabled(cue: Cue) {
-    return cue === 'startup' ? this.settings.startupSound
+    return cue === 'startup' || cue === 'close' ? this.settings.startupSound
       : cue === 'completion' ? this.settings.sound : this.settings.interfaceSound;
   }
 }

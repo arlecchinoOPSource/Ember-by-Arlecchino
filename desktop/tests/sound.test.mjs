@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SoundManager } from '../src/soundManager.ts';
 
-const urls = { startup: 'local-startup', interface: 'local-interface', completion: 'local-completion', error: 'local-error' };
+const urls = { startup: 'local-startup', close: 'local-close', interface: 'local-interface', completion: 'local-completion', error: 'local-error' };
 const settings = { muted: false, volume: 70, startupSound: false, interfaceSound: false, sound: false };
 
 function harness(reject = false) {
@@ -49,8 +49,21 @@ test('volume follows settings and rejected playback is harmless', async () => {
   manager.configure({ ...settings, startupSound: true, volume: 35 });
   assert.equal(manager.play('startup'), true);
   assert.equal(voices[0].volume, .35);
+  assert.equal(voices[0].playbackRate, 1.25);
   await Promise.resolve();
   assert.equal(voices[0].paused, true);
   manager.configure({ ...settings, interfaceSound: true, volume: 0 });
   assert.equal(manager.play('error'), false);
+});
+
+test('the close cue follows the startup switch and stops other playback', () => {
+  const { manager, voices } = harness();
+  manager.configure({ ...settings, startupSound: true, interfaceSound: true });
+  assert.equal(manager.play('interface'), true);
+  assert.equal(manager.play('close'), true);
+  assert.equal(voices[0].paused, true);
+  assert.equal(voices[1].url, 'local-close');
+  manager.configure({ ...settings, startupSound: false });
+  assert.equal(voices[1].paused, true);
+  assert.equal(manager.play('close'), false);
 });

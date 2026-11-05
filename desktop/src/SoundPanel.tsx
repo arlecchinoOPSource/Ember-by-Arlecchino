@@ -8,7 +8,7 @@ type Props = { value: Preferences; update: (value: Preferences) => void };
 export function SoundPanel({ value, update }: Props) {
   const change = (patch: Partial<Preferences>) => update({ ...value, ...patch });
   const rows = [
-    { key: 'startupSound', label: 'Startup', detail: 'Once when Ember opens', cue: 'startup' },
+    { key: 'startupSound', label: 'Startup', detail: 'Open and close cues', cue: 'startup' },
     { key: 'interfaceSound', label: 'Interface', detail: 'Buttons, panels and errors', cue: 'interface' },
     { key: 'sound', label: 'Completion', detail: 'After a habit is saved', cue: 'completion' },
   ] as const;
@@ -20,6 +20,6 @@ export function SoundPanel({ value, update }: Props) {
       <label><input type="checkbox" aria-label={`${row.label} sound`} checked={value[row.key]} onChange={event => change({ [row.key]: event.target.checked })} /><span><strong>{row.label}</strong><small>{row.detail}</small></span></label>
       <button type="button" className="sound-preview" data-cue="none" aria-label={`Play ${row.label} sample`} title={`Play ${row.label} sample`} disabled={value.muted || value.volume === 0} onClick={() => sounds.play(row.cue, true)}><Icon name="play" /></button>
     </div>)}</div>
-    <p className="settings-note">All cues are local and opt-in. No typing or keyboard sounds play.</p>
+    <p className="settings-note">Cues are local. Interface and Completion are opt-in; no typing or keyboard sounds play.</p>
   </section>;
 }

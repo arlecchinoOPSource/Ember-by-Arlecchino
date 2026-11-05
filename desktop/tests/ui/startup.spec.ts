@@ -7,7 +7,11 @@ test('first launch shows Ember startup and leaves when local habits are ready', 
   await page.goto('/?startupDelay=650');
   await expect(startup(page)).toBeVisible();
   await expect(startup(page)).toContainText('OPENING HABITS');
-  await expect(startup(page)).toHaveCount(0, { timeout: 1200 });
+  await expect(startup(page)).toHaveAttribute('data-animated', 'true');
+  await expect(startup(page).locator('.startup-wordmark')).toHaveText('EMBER');
+  await expect(status(page)).toHaveText('READY');
+  await expect(startup(page)).toBeVisible();
+  await expect(startup(page)).toHaveCount(0, { timeout: 2400 });
   await expect(status(page)).toHaveText('READY');
 });
 
