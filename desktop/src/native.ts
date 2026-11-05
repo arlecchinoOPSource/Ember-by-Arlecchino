@@ -3,6 +3,7 @@ import type { Habit } from './calendar';
 
 /** Typed wrappers for Ember's native commands (src-tauri/src/lib.rs). Each resolves only after SQLite committed. */
 export const native = {
+  practiceDays: () => invoke<[string, number][]>('practice_days'),
   listHabits: () => invoke<Habit[]>('habits_list'),
   createHabit: (name: string) => invoke<Habit[]>('habits_create', { name }),
   renameHabit: (id: string, name: string) => invoke<Habit[]>('habits_rename', { id, name }),

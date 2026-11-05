@@ -122,3 +122,19 @@ export function gridMoveForKey(key: string, ctrlOrMeta: boolean): GridMove | nul
     default: return null;
   }
 }
+
+/** A practice day counts once across all habits. Today remains open until local midnight. */
+export function practiceStreaks(dates: Iterable<string>, today: string) {
+  let previous = -Infinity;
+  let run = 0;
+  let longest = 0;
+  for (const date of [...new Set(dates)].sort()) {
+    if (date > today) break;
+    const day = Date.parse(date + 'T00:00:00Z') / 86400000;
+    run = day === previous + 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    previous = day;
+  }
+  const todayNumber = Date.parse(today + 'T00:00:00Z') / 86400000;
+  return { current: todayNumber - previous <= 1 ? run : 0, longest };
+}

@@ -97,7 +97,7 @@ export function HabitManager({ habits, busy, native, addRef, ...actions }: { hab
 }
 
 /** Monthly totals: completions and the rate over eligible habit-days elapsed. */
-export function Summary({ stats, monthName }: { stats: MonthStats; monthName: string }) {
+export function Summary({ stats, monthName, streaks }: { streaks: { current: number; longest: number }; stats: MonthStats; monthName: string }) {
   return <>
     <dl className="stats">
       <div className="stat"><dt>COMPLETIONS</dt><dd>{stats.completed}</dd></div>
@@ -108,6 +108,11 @@ export function Summary({ stats, monthName }: { stats: MonthStats; monthName: st
       <div className="progress-track" role="meter" aria-labelledby="rate-label" aria-valuemin={0} aria-valuemax={100} aria-valuenow={stats.rate} aria-valuetext={`${stats.rate}% of eligible habit-days in ${monthName} completed`}><span style={{ width: `${stats.rate}%` }} /></div>
       <small>Based on active habit-days through today.</small>
     </div>
-    <p className="right-note">Small things,<br />done often<span>.</span></p>
+    <h3>Practice streaks</h3>
+    <dl className="stats">
+      <div className="stat"><dt>CURRENT</dt><dd>{streaks.current}</dd></div>
+      <div className="stat"><dt>LONGEST</dt><dd>{streaks.longest}</dd></div>
+    </dl>
+    <small>Consecutive days with any completion across all months. Your current streak stays open through today.</small>
   </>;
 }

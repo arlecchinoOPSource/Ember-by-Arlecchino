@@ -5,3 +5,7 @@
 The existing website exports `schemaVersion: 1`, `source: "ember"`, `timeZone: "Asia/Manila"`, `range: 2026-11-01` to `2026-12-31`, ten stable habits in a fixed order, `encoding: "daily-bitmask-v1"`, and `completionByDate`. Its bit positions correspond to: Workout, Eat, Sleep, Study, Read, Meditate, Journal, Guitar, Compose, Music production. The importer must validate the complete structure and date range, map bit positions to stable IDs, preview how many habits and completions will be added, and ask before changing the desktop database. A transaction must prevent partial import. Existing desktop records must not be silently overwritten. The exported file contains personal history and must never be committed.
 
 Before 1.0, backup/restore must use a versioned format with validation and a pre-restore copy, and JSON/CSV export must provide a usable copy of history.
+
+Practice streaks count consecutive local calendar days with at least one eligible completion across all habits, including archived history. Current ends today or yesterday, giving the user until midnight to record today. Longest covers all recorded days through today, independent of the month on screen.
+
+Theme, motion, sound and panel choices live in Ember's local webview settings, separately from SQLite. The bundled completion cue is an original synthesized tone, distributed under this repository's MIT license. It is muted by default.

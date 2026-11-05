@@ -258,6 +258,21 @@ pub fn archive(db: &Connection, id: &str, archived_at: &str) -> Result<(), Strin
     Ok(())
 }
 
+pub fn practice_days(db: &Connection) -> Result<Vec<(String, i64)>, String> {
+    let mut statement = db
+        .prepare(
+            "SELECT c.date, COUNT(*) FROM completions c JOIN habits h ON h.id = c.habit_id
+         WHERE c.date >= h.start_date AND (h.archived_at IS NULL OR c.date <= h.archived_at)
+         GROUP BY c.date ORDER BY c.date",
+        )
+        .map_err(failed(READ))?;
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(failed(READ))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(failed(READ))
+}
+
 pub fn month_rows(db: &Connection, year: i32, month: u32) -> Result<Vec<(String, String)>, String> {
     let first = NaiveDate::from_ymd_opt(year, month, 1).ok_or("Invalid month.")?;
     let next = first
@@ -512,6 +527,19 @@ mod tests {
         assert_eq!(list(&db).unwrap().len(), 1);
         db.pragma_update(None, "user_version", 99).unwrap();
         assert!(migrate(&mut db).is_err());
+    }
+
+    #[test]
+    fn practice_days_count_each_eligible_completion_including_archived_history() {
+        let mut db = memory();
+        create(&db, "A", "2026-11-01").unwrap();
+        create(&db, "B", "2026-11-02").unwrap();
+        let ids = ids(&db);
+        for id in &ids {
+            toggle(&mut db, id, "2026-11-03", "2026-11-03").unwrap();
+        }
+        archive(&db, &ids[0], "2026-11-03").unwrap();
+        assert_eq!(practice_days(&db).unwrap(), vec![("2026-11-03".into(), 2)]);
     }
 
     #[test]

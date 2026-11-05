@@ -132,3 +132,8 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .has-preview-bar #root { padding-top: 26px; box-sizing: border-box; }
 /* The preview may be opened on a phone: let the frame shrink and scroll inside instead of the page. */
 .has-preview-bar, .has-preview-bar body, .has-preview-bar #root { min-width: 0; overflow: hidden; }
+
+.preference-fields { display: grid; gap: 1rem; padding: .75rem; }
+.preference-fields label { display: grid; gap: .35rem; }
+.preference-fields label:has(input) { display: flex; align-items: center; }
+.preference-fields select { max-width: 100%; font: inherit; color: var(--text); background: var(--panel); }

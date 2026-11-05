@@ -79,6 +79,10 @@ fn habits_archive(db: tauri::State<'_, Database>, id: String) -> Result<Vec<Habi
     })
 }
 #[tauri::command]
+fn practice_days(db: tauri::State<'_, Database>) -> Result<Vec<(String, i64)>, String> {
+    with_db(db, |conn| storage::practice_days(conn))
+}
+#[tauri::command]
 fn completions_month(
     db: tauri::State<'_, Database>,
     year: i32,
@@ -143,6 +147,7 @@ pub fn run() {
             habits_rename,
             habits_move,
             habits_archive,
+            practice_days,
             completions_month,
             completions_toggle
         ])

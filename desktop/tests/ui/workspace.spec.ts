@@ -171,3 +171,23 @@ test('reduced motion turns animation off; text scaling keeps the layout usable',
   const box = (await page.locator('.grid-area').boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(1160);
 });
+
+test('preferences survive reopening and optional audio failure leaves the completion saved', async ({ page }) => {
+  await open(page);
+  const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  await settings.click();
+  await expect(page.getByLabel('Completion sound')).not.toBeChecked();
+  await page.getByLabel('Completion sound').check();
+  await page.getByLabel('Theme', { exact: true }).selectOption('mint');
+  await page.getByLabel('Motion', { exact: true }).selectOption('off');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
+  await settings.click();
+  await expect(page.getByLabel('Completion sound')).toBeChecked();
+  await page.evaluate(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new Error('Audio unavailable')); });
+  const cell = grid(page).locator('button[data-date="2026-12-31"]').first();
+  await cell.click();
+  await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('status').filter({ hasText: 'LOCAL DATA' })).toHaveText(/SAVED/);
+});
