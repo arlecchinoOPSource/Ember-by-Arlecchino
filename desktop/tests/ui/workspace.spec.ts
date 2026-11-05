@@ -179,13 +179,16 @@ test('preferences survive reopening and optional audio failure leaves the comple
   await settings.click();
   await expect(page.getByLabel('Completion sound')).not.toBeChecked();
   await page.getByLabel('Completion sound').check();
-  await page.getByLabel('Theme', { exact: true }).selectOption('mint');
-  await page.getByLabel('Motion', { exact: true }).selectOption('off');
+  await page.getByRole('radio', { name: 'Off' }).check();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Themes' }).click();
+  await page.getByRole('button', { name: /Terminal Mint/ }).click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
   await settings.click();
   await expect(page.getByLabel('Completion sound')).toBeChecked();
+  await page.keyboard.press('Escape');
   await page.evaluate(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new Error('Audio unavailable')); });
   const cell = grid(page).locator('button[data-date="2026-12-31"]').first();
   await cell.click();
@@ -193,7 +196,7 @@ test('preferences survive reopening and optional audio failure leaves the comple
   await expect(statusBar(page)).toHaveText('SAVED');
 });
 
-test('Terminal parity: centred wordmark, no decorative text, Settings at the rail bottom', async ({ page, browserName }) => {
+test('Terminal parity: centred wordmark, rail order, and Settings docked at the left', async ({ page, browserName }) => {
   for (const size of [{ width: 1160, height: 780 }, { width: 680, height: 500 }]) {
     await page.setViewportSize(size);
     await open(page);
@@ -208,16 +211,29 @@ test('Terminal parity: centred wordmark, no decorative text, Settings at the rai
     const rail = (await page.locator('.rail').boundingBox())!;
     const box = (await settings.boundingBox())!;
     expect(rail.y + rail.height - (box.y + box.height)).toBeLessThan(16);
+    const themesBox = (await page.getByRole('button', { name: 'Themes' }).boundingBox())!;
+    const addBox = (await page.getByRole('button', { name: 'Add habit', exact: true }).boundingBox())!;
+    expect(themesBox.y + themesBox.height).toBeLessThan(addBox.y);
   }
   // Keyboard: Settings is reachable and shows a visible focus ring.
-  await page.getByRole('button', { name: 'Add habit' }).focus();
+  await page.getByRole('button', { name: 'Add habit', exact: true }).focus();
   // macOS WebKit uses Option-Tab to include buttons with default keyboard preferences.
   await page.keyboard.press(browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
   const settings = page.getByRole('button', { name: 'Settings' });
   await expect(settings).toBeFocused();
   expect(await settings.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('combobox', { name: 'Theme' })).toBeVisible();
+  const dock = page.getByRole('complementary', { name: 'Settings' });
+  await expect(dock).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Full' })).toBeVisible();
+  const panel = (await dock.boundingBox())!;
+  const workspace = (await page.locator('.workspace').boundingBox())!;
+  expect(Math.abs(panel.x - workspace.x)).toBeLessThan(2);
+  expect(panel.y).toBeGreaterThanOrEqual(workspace.y);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(680);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(500);
+  await page.getByRole('button', { name: 'Choose theme' }).click();
+  await expect(page.getByRole('dialog', { name: 'Themes' })).toBeVisible();
   // Everyday text uses the reading faces; Orbitron stays for the wordmark and short headings.
   const font = (selector: string) => page.locator(selector).first().evaluate(e => getComputedStyle(e).fontFamily);
   expect(await font('thead th')).toContain('IBM Plex Sans');
