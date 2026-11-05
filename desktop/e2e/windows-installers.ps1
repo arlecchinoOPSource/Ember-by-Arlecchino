@@ -11,12 +11,27 @@ $msi = (Get-ChildItem "$bundle/msi/*.msi" -ErrorAction Stop | Select-Object -Fir
 foreach ($kind in 'nsis','msi') {
     $folder = Join-Path $env:RUNNER_TEMP "installed-ember-$kind"
     if ($kind -eq 'nsis') { Run-Installer $nsis "/S /D=$folder" }
-    else { Run-Installer msiexec "/i `"$msi`" /qn /norestart INSTALLDIR=`"$folder`"" }
+    else {
+        $msiLog = Join-Path $env:RUNNER_TEMP 'ember-msi-install.log'
+        Run-Installer msiexec "/L*v `"$msiLog`" /i `"$msi`" /qn /norestart INSTALLDIR=`"$folder`"" }
     # WiX can install the main executable under the product name. Inspect the
     # actual installation, including the default Program Files location.
     $roots = @($folder, "$env:ProgramFiles/Ember", "${env:ProgramFiles(x86)}/Ember")
+    if ($kind -eq 'msi') {
+        # WiX records the resolved destination of each file operation. Respect
+        # per-user installs and localized/redirected folders from the installer.
+        $destination = $null
+        foreach ($line in (Get-Content $msiLog)) {
+            if ($line -match 'Executing op: SetTargetFolder\(Folder=([^,)]+)') {
+                $destination = $Matches[1]
+                $roots += $destination
+            }
+            if ($line -match 'Executing op: FileCopy\(') { Write-Host "MSI file in ${destination}: $line" }
+        }
+        $roots += "$env:LOCALAPPDATA/Programs/Ember","$env:LOCALAPPDATA/Ember"
+    }
     $candidates = @($roots | Where-Object { Test-Path $_ } | ForEach-Object {
-        Get-ChildItem $_ -Filter '*.exe' -Recurse | Where-Object { $_.BaseName -in 'Ember','ember-by-arlecchino' }
+        Get-ChildItem -LiteralPath $_ -Filter '*.exe' -File | Where-Object { $_.Name -like '*ember*.exe' }
     } | Sort-Object FullName -Unique)
     if ($candidates.Count -gt 1) { throw "Ambiguous installed executables: $($candidates.FullName)" }
     $exe = $candidates | Select-Object -First 1
