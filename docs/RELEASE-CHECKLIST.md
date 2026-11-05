@@ -1,13 +1,17 @@
 # Ember 1.0 release checklist
 
-- [ ] All core interactions persist through app restart, including error/retry behavior.
-- [ ] Leap years, month/year boundaries, local time zones, future-date blocking, archive history, and habit reordering are tested.
-- [ ] Website snapshot import is validated, previewed, transactional, and tested with synthetic fixtures.
-- [ ] Backup/restore and JSON/CSV export are documented and verified, including invalid-file rejection.
-- [ ] Keyboard access, focus, text scaling, contrast, and reduced motion are reviewed in the packaged app.
-- [ ] Font/audio/icon redistribution rights are recorded; assets are bundled locally.
-- [ ] `npm run check` passes, plus native macOS and Windows builds and installation smoke tests.
-- [ ] App identifier, icons, version, privacy language, changelog, and release artifacts are reviewed.
-- [ ] Signing/notarization decisions are recorded; no credentials enter Git.
-- [ ] Source and installer contents are checked for private history and secrets.
-- [ ] Owner explicitly authorizes publication of the GitHub release.
+Verification on 5 November 2026. Candidate version 1.0.0, SQLite schema v1.
+
+- [x] Native storage tests cover restart, failed writes, retry, reorder and archive using synthetic SQLite files.
+- [x] Calendar and native suites cover leap years, local dates, future dates, month/year boundaries and eligibility.
+- [x] Website snapshot preview, all 61 dates, bit mapping, duplicates and transaction rollback pass native tests.
+- [x] Backup/restore and JSON/CSV exports are documented in [DATA.md](DATA.md). Round-trip, stale preview, recovery file, malformed data, capacity limit and injected failure tests pass.
+- [x] Shared token checks and Chromium/WebKit tests cover keyboard, focus, text scaling and reduced motion. Packaged Mac grid exposes accessible names, checked states, future dates and progress.
+- [ ] Finish the hands-on packaged accessibility review, including contrast, text zoom and reduced motion.
+- [x] Installer resources include MIT and both font OFL texts. The Ember logo and bundled original completion cue are project assets. Asset notices are recorded in the suite package.
+- [x] Production identifier, version, icons, local data locations and candidate [release notes](RELEASE-NOTES.md) reviewed.
+- [x] Apple Silicon macOS DMG verified by checksum, mounted read-only and copied to an isolated installation. Strict bundle signature verification passed. Two launches opened the same synthetic profile; removal of the app preserved its history.
+- [ ] Record Windows x64 MSI and NSIS installed-app results.
+- [x] macOS candidate is ad-hoc signed and unnotarized. Windows builds use no publisher signing credential. Intel Mac installation is outside the verified coverage.
+- [x] Tracked file inventory and common secret patterns reviewed. Private Site, local copies, signing keys and build output excluded. The Mac bundle was inspected for private data files and expected license resources.
+- [ ] Owner approves public release after reviewing the candidate.

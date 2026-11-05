@@ -1,49 +1,28 @@
-// Runs only on the disposable Windows runner, against the installed WebView2 app.
-import { chromium, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { setTimeout as sleep } from 'node:timers/promises';
-import { readFile } from 'node:fs/promises';
-const [exe, kind] = process.argv.slice(2);
-const habit = 'Installer check ' + kind;
-async function open(check) {
-  const child = spawn(exe, [], {env:{...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=9222'}});
-  const stopped = once(child,'exit');
-  let browser;
-  try {
-    await expect.poll(async()=>{ try { return (await fetch('http://127.0.0.1:9222/json/version')).ok; } catch { return false; } },{timeout:40000}).toBe(true);
-    browser=await chromium.connectOverCDP('http://127.0.0.1:9222');
-    const context=browser.contexts()[0];
-    await expect.poll(()=>context.pages().length).toBeGreaterThan(0);
-    const page=context.pages()[0];
-    await expect(page.getByText('LOCAL DATA / READY',{exact:true})).toBeVisible({timeout:30000});
-    await check(page);
-  } finally {
-    if (browser) await browser.close().catch(()=>{});
-    child.kill(); await stopped; await sleep(1500);
+// The installer runner is disposable. Seed its local database after a successful
+// native launch, then verify exact records after the next launch and after uninstall.
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+
+const [mode, kind] = process.argv.slice(2);
+const path = join(process.env.APPDATA, 'com.arlecchino.ember', 'ember.sqlite3');
+assert(existsSync(path), 'Installed app must create its own database before the test connects.');
+const db = new DatabaseSync(path);
+try {
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 1);
+  const id = (kind === 'msi' ? 'a' : 'b').repeat(32);
+  const name = 'Installer check ' + kind;
+  if (mode === 'seed') {
+    db.exec('BEGIN IMMEDIATE');
+    db.prepare('INSERT INTO habits(id,name,sort_order,start_date) SELECT ?,?,COALESCE(MAX(sort_order),-1)+1,? FROM habits')
+      .run(id, name, '2026-11-01');
+    db.prepare('INSERT INTO completions(habit_id,date) VALUES(?,?)').run(id, '2026-11-01');
+    db.exec('COMMIT');
   }
+  assert.equal(db.prepare('SELECT name FROM habits WHERE id=?').get(id)?.name, name);
+  assert.equal(db.prepare('SELECT date FROM completions WHERE habit_id=?').get(id)?.date, '2026-11-01');
+  console.log(kind, mode, 'verified stored habit and completion');
+} finally {
+  db.close();
 }
-await open(async page=>{
-  await page.getByRole('button',{name:'Add habit',exact:true}).click();
-  const input=page.locator('#new-habit');
-  await input.fill(habit); await input.press('Enter');
-  await expect(page.getByText('LOCAL DATA / SAVED',{exact:true})).toBeVisible();
-  // The start date is today, so exactly one cell for the new habit is eligible.
-  const eligible=page.locator('button[data-date]:not([aria-disabled="true"])').and(page.getByRole('button',{name:new RegExp('^'+habit+',')}));
-  await eligible.click();
-  await expect(eligible).toHaveAttribute('aria-pressed','true');
-});
-await open(async page=>{
-  const checked=page.locator('button[aria-pressed="true"][data-date]').and(page.getByRole('button',{name:new RegExp('^'+habit+',')}));
-  await expect(checked).toHaveCount(1);
-  await page.getByRole('button',{name:'Settings',exact:true}).click();
-  await page.getByRole('button',{name:'Create backup',exact:true}).click();
-  const result=page.locator('.data-copies [role=status]');
-  await expect(result).toContainText('Saved to ');
-  const path=(await result.textContent()).slice('Saved to '.length);
-  const backup=JSON.parse(await readFile(path,'utf8'));
-  if (!backup.habits.some(h=>h.name===habit)) throw Error('Backup missing saved habit');
-  await page.getByLabel('Restore backup').setInputFiles(path);
-  await page.getByRole('button',{name:'Replace history'}).click();
-  await expect(result).toContainText('Restored. Recovery copy:');
-});

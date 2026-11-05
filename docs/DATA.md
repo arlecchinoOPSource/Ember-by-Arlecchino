@@ -11,3 +11,13 @@ Practice streaks count consecutive local calendar days with at least one eligibl
 Theme, motion, sound and panel choices live in Ember's local webview settings, separately from SQLite. The bundled completion cue is an original synthesized tone, distributed under this repository's MIT license. It is muted by default.
 
 In the desktop app, open Settings and choose a website snapshot JSON file. Ember checks all 61 dates and ten bit positions locally, then shows a preview. A nonzero future day is invalid. Confirmation rechecks for collisions inside the write transaction. Any matching import ID or existing habit name blocks the entire import, including a repeat import. Successful imports append the ten habits in website order with a November 1 start date. The importer never merges by name.
+
+## Back up, restore and export
+
+In Settings, **Create backup** takes a consistent SQLite snapshot and saves a version 1 Ember JSON file containing habit IDs, names, display order, start and archive dates, and every completion. Device settings are separate. The result shows the full path. Copy the file to another drive to keep an independent backup.
+
+**Restore backup** shows incoming and current counts. **Replace history** writes a private pre-restore backup before replacing the database contents in one transaction. Preview again if the selected contents or current history change. To undo a restore, select its pre-restore JSON. Ember checks the format, version, size (32 MiB maximum), dates, IDs, unique ordering and completion relationships.
+
+**Export CSV** and **Export JSON** each provide one row per completed habit-day with local date, immutable habit ID and current display name, including archived habits. Missing rows indicate unchecked days. CSV quotes names and prefixes formula-like names with an apostrophe for spreadsheet use. Use a backup to recover empty habits and ordering.
+
+The database is `ember.sqlite3`. Copies are saved in `Exports` beside it, under `~/Library/Application Support/com.arlecchino.ember/` on macOS or `%APPDATA%\com.arlecchino.ember\` on Windows. These local files contain readable habit history. On macOS, the folder and file modes are 0700 and 0600. Windows uses the permissions on the user's profile.
