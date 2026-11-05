@@ -1,0 +1,61 @@
+import { expect, test } from '@playwright/test';
+
+test('sound choices persist, mute is immediate, and interface cues do not play while muted', async ({ page }) => {
+  await page.addInitScript(() => {
+    const target = window as Window & { emberPlayCount: number };
+    target.emberPlayCount = 0;
+    HTMLMediaElement.prototype.play = () => { target.emberPlayCount++; return Promise.resolve(); };
+  });
+  await page.goto('/');
+  await expect(page.locator('.save-status')).toHaveText('READY');
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Startup sound' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
+  await page.getByRole('checkbox', { name: 'Interface sound' }).check();
+  await page.keyboard.press('Escape');
+  const before = await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount);
+  await page.waitForTimeout(100);
+  await page.getByRole('button', { name: 'Today' }).click();
+  expect(await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount)).toBeGreaterThan(before);
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await page.getByRole('checkbox', { name: 'Mute all sounds' }).check();
+  await expect(page.getByRole('button', { name: 'Play Interface sample' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  const mutedCount = await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount);
+  await page.getByRole('button', { name: 'Today' }).click();
+  expect(await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount)).toBe(mutedCount);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Mute all sounds' })).toBeChecked();
+});
+
+test('Full, Reduced, Off, and OS reduced motion keep navigation and focus usable', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-06T10:00:00') });
+  await page.goto('/');
+  await expect(page.locator('.save-status')).toHaveText('READY');
+  const next = page.getByRole('button', { name: /^Next month/ });
+  await next.click();
+  await expect(next).toBeFocused();
+  expect(await page.locator('.month-title').evaluate(e => getComputedStyle(e).animationName)).toBe('ember-month-in');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const dock = page.locator('.settings-dock');
+  expect(await dock.evaluate(e => getComputedStyle(e).animationName)).toBe('panel-in');
+  await page.getByRole('group', { name: /Motion/ }).getByRole('radio', { name: 'Reduced' }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'reduced');
+  expect(await dock.evaluate(e => getComputedStyle(e).animationName)).toBe('none');
+  await page.getByRole('group', { name: /Motion/ }).getByRole('radio', { name: 'Off' }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
+  expect(await page.locator('.check').first().evaluate(e => getComputedStyle(e).transitionDuration)).toMatch(/^0s/);
+  await page.getByRole('group', { name: /Motion/ }).getByRole('radio', { name: 'Full' }).check();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
+  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'full');
+  await next.click(); await next.click(); await next.click();
+  await expect(next).toBeFocused();
+  await expect(page.locator('.month-title')).toHaveText('March 2027');
+});

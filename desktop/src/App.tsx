@@ -1,7 +1,9 @@
 import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
 import { Settings, ThemePicker } from './Settings';
-import { applyPreferences, playCompletion, playStartupCue, readPreferences, storePreferences } from './preferences';
+import { SoundPanel } from './SoundPanel';
+import { applyPreferences, readPreferences, storePreferences } from './preferences';
+import { sounds } from './sounds';
 import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StartupScreen, StatusBar, SvgIcon, type Readiness, type StatusTone } from '@arlecchino/suite-ui';
@@ -22,7 +24,16 @@ export function App() {
   const [preferences, setPreferences] = useState(readPreferences);
   const [preferencesStored, setPreferencesStored] = useState(true);
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
-  useEffect(() => { applyPreferences(preferences); }, [preferences, reduced]);
+  useEffect(() => { applyPreferences(preferences); sounds.configure(preferences); }, [preferences, reduced]);
+  useEffect(() => {
+    function onClick(event: MouseEvent) {
+      if (!(event.target instanceof Element)) return;
+      const control = event.target.closest('button, select, input[type="checkbox"], input[type="radio"]');
+      if (control && !control.matches('.check, [data-cue="none"]')) sounds.play('interface');
+    }
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
   const today = useToday();
   const [at, setAt] = useState<YearMonth>(() => { const { year, month } = parseDateKey(today); return { year, month }; });
   const [opened, setOpened] = useState(false);
@@ -37,9 +48,10 @@ export function App() {
   const [rightOpen, setRightOpen] = usePanel('right', narrow);
   const addRef = useRef<HTMLInputElement>(null);
   const themesRef = useRef<HTMLButtonElement>(null);
+  const soundRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLElement>(null);
-  const [panel, setPanel] = useState<'themes' | 'settings' | null>(null);
+  const [panel, setPanel] = useState<'themes' | 'sounds' | 'settings' | null>(null);
   const isNative = isTauri();
   // A launch decision, so changing Settings does not replay the screen mid-session.
   const [startupVisible, setStartupVisible] = useState(() => isNative && preferences.startupScreen);
@@ -48,7 +60,7 @@ export function App() {
   useEffect(() => {
     if (startupCueAttempted.current) return;
     startupCueAttempted.current = true;
-    if (startupVisible && preferences.startupSound) playStartupCue();
+    if (startupVisible) sounds.play('startup');
   }, []);
   const busy = status === 'loading' || status === 'saving';
 
@@ -63,7 +75,7 @@ export function App() {
     let live = true;
     setStatus('loading');
     load(at).then(({ items, practice, done }) => { if (live) { setOpened(true); setDays(new Map(practice)); setHabits(items); setCompletions(done); setStatus('ready'); setError(''); } })
-      .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); } });
+      .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); sounds.play('error'); } });
     return () => { live = false; };
   }, [at, isNative, load, revision]);
 
@@ -72,7 +84,7 @@ export function App() {
     if (busy || !isNative) return false;
     setStatus('saving'); setError('');
     try { await action(); setStatus('saved'); return true; }
-    catch (reason) { setStatus('save-error'); setError(String(reason)); return false; }
+    catch (reason) { setStatus('save-error'); setError(String(reason)); sounds.play('error'); return false; }
   }
 
   // Navigation never waits on saving: changing month while a save runs is safe (the save completes either way).
@@ -121,7 +133,7 @@ export function App() {
       else next.delete(date);
       return next;
     });
-    if (checked && preferences.sound) playCompletion();
+    if (checked) sounds.play('completion');
     setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
   });
 
@@ -131,6 +143,7 @@ export function App() {
   const startupReadiness: Readiness = status === 'load-error' ? 'error' : opened ? 'ready' : 'starting';
 
   function updatePreferences(next: typeof preferences) {
+    sounds.configure(next);
     setPreferences(next);
     setPreferencesStored(storePreferences(next));
   }
@@ -154,11 +167,13 @@ export function App() {
       <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
     </button>
     <IconButton ref={themesRef} icon="themes" label="Themes" aria-expanded={panel === 'themes'} aria-controls="theme-panel" onClick={() => setPanel(current => current === 'themes' ? null : 'themes')} />
+    <IconButton ref={soundRef} icon="sounds" label="Sounds" aria-expanded={panel === 'sounds'} aria-controls="sounds-panel" onClick={() => setPanel(current => current === 'sounds' ? null : 'sounds')} />
     <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
     {panel === 'themes' && <Popover id="theme-panel" title="Themes" className="ember-theme-popover" scrim onClose={() => setPanel(null)} triggerRef={themesRef}><ThemePicker current={preferences.theme} onSelect={theme => updatePreferences({ ...preferences, theme })} /></Popover>}
+    {panel === 'sounds' && <Popover id="sounds-panel" title="Sounds" className="ember-sounds-popover" scrim onClose={() => setPanel(null)} triggerRef={soundRef}><SoundPanel value={preferences} update={updatePreferences} /></Popover>}
     {panel === 'settings' && <aside id="settings-panel" ref={settingsPanelRef} className="settings-dock suite-frame" aria-labelledby="settings-panel-title" tabIndex={-1}>
       <header className="settings-dock-head"><h2 id="settings-panel-title">Settings</h2><button type="button" className="icon-button" aria-label="Close settings" onClick={() => { setPanel(null); settingsRef.current?.focus(); }}><Icon name="close" /></button></header>
       <div className="settings-dock-body">
@@ -171,7 +186,7 @@ export function App() {
     <section className="toolbar" aria-label="Calendar controls">
       <div className="tool-group">
         <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, -1))} disabled={!canShift(at, -1)} aria-label={`Previous month, ${MONTH_NAMES[shiftMonth(at, -1).month - 1]} ${shiftMonth(at, -1).year}`} title={`Previous month (${mod}+←)`} aria-keyshortcuts={`${ariaMod}+ArrowLeft`}><Icon name="chevron-left" /></button>
-        <h1 className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
+        <h1 key={`${at.year}-${at.month}`} className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
         <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, 1))} disabled={!canShift(at, 1)} aria-label={`Next month, ${MONTH_NAMES[shiftMonth(at, 1).month - 1]} ${shiftMonth(at, 1).year}`} title={`Next month (${mod}+→)`} aria-keyshortcuts={`${ariaMod}+ArrowRight`}><Icon name="chevron-right" /></button>
       </div>
       <div className="tool-group" role="group" aria-label="Year">

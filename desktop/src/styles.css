@@ -16,6 +16,9 @@ html, body, #root { min-width: 0; }
 .month-title { margin: 0 4px; min-width: 9.5rem; text-align: center; color: var(--text); font: 600 .8125rem/1 var(--font-condensed); letter-spacing: .14em; text-transform: uppercase; }
 .month-title span { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .today-button { text-transform: uppercase; }
+/* Remount only the label on month changes: focus stays on the navigation control. */
+.month-title { animation: ember-month-in var(--motion-state) var(--steps-flash); }
+@keyframes ember-month-in { from { opacity: .35; filter: brightness(1.8); } }
 
 /* ── Workspace and collapsible side panels ─────────────────────────────── */
 .content { --left: 13rem; --right: 13.5rem; --strip: 2.5rem; position: relative; min-height: 0; display: grid; grid-template-columns: var(--left) minmax(0, 1fr) var(--right); gap: 6px; }
@@ -30,6 +33,7 @@ html, body, #root { min-width: 0; }
 .panel-toggle:hover { background: var(--panel-2); color: var(--phosphor); }
 .side-panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px clamp(12px, 1.7vw, 20px); display: flex; flex-direction: column; }
 .side-panel-body[hidden] { display: none; }
+.side-panel[data-open='true'] .side-panel-body { animation: panel-in var(--motion-popover) var(--steps-reveal); }
 .panel-strip { flex: 1; border: 0; background: transparent; color: var(--text-2); font: .6875rem/1 var(--font-ui); letter-spacing: .2em; writing-mode: vertical-rl; padding: .75rem 0; }
 .panel-strip:hover { color: var(--phosphor); background: var(--panel-2); }
 .right-panel .panel-strip span { color: var(--phosphor); }
@@ -93,10 +97,11 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .grid-scroll tbody th small { color: var(--text-2); font-size: .625rem; margin-left: .45rem; }
 .grid-scroll .current-day th, .grid-scroll .current-day td { background: var(--tint); }
 .grid-scroll .current-day th b { color: var(--phosphor); }
-.check { width: 1.6rem; height: 1.6rem; padding: 0; border: 1px solid var(--line-3); color: var(--void); background: transparent; border-radius: 2px; font-size: .9375rem; font-weight: bold; line-height: 1; transition: background-color var(--motion-state) var(--ease), border-color var(--motion-state) var(--ease); }
+.check { width: 1.6rem; height: 1.6rem; padding: 0; border: 1px solid var(--line-3); color: var(--void); background: transparent; border-radius: 2px; font-size: .9375rem; font-weight: bold; line-height: 1; transition: background-color var(--motion-state) var(--ease), border-color var(--motion-state) var(--ease), box-shadow var(--motion-state) var(--ease); }
 .check[aria-disabled='true'] { cursor: default; }
 .cell-open .check:not([aria-disabled='true']):hover { border-color: var(--phosphor); }
 .check.checked { background: var(--phosphor); border-color: var(--phosphor); box-shadow: 0 0 8px var(--glow); }
+.check:not([aria-disabled='true']):active { transform: translateY(1px); filter: brightness(1.3); }
 /* Future days: a quieter frame. Inactive (before start, after archive): a dashed outline. Both stay focusable. */
 .cell-future .check:not(.checked) { border-color: var(--line-2); }
 .cell-inactive .check:not(.checked) { border: 1px dashed var(--line-2); opacity: .7; }
@@ -125,6 +130,7 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 
 /* ── Status ────────────────────────────────────────────────────────────── */
 .error-banner { font-family: var(--font-read); position: absolute; bottom: 42px; left: calc(var(--rail-width) + 18px); right: 14px; z-index: 8; background: var(--panel); border: 1px solid var(--danger); border-radius: var(--radius); color: var(--text); padding: .75rem 1rem; font-size: .75rem; display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; box-shadow: 0 0 24px rgba(var(--danger-rgb), .15); }
+.error-banner { animation: dialog-in var(--motion-dialog) var(--steps-dialog); }
 .error-banner button { color: var(--danger); background: transparent; border: 1px solid var(--danger); border-radius: var(--radius); padding: .4rem .6rem; white-space: nowrap; }
 
 /* Browser preview build only (src/preview). */
@@ -136,15 +142,17 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 
 .workspace { position: relative; }
 .settings-dock { position: absolute; z-index: 8; top: 0; bottom: 34px; left: 0; width: min(400px, 100%); min-height: 0; display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-ui); box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line), 14px 0 32px rgba(0,0,0,.5); }
+.settings-dock { animation: panel-in var(--motion-popover) var(--steps-reveal); }
 .settings-dock:focus { outline: none; }
 .settings-dock-head { flex: 0 0 auto; min-height: 40px; padding: 2px 6px 2px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line-2); background: linear-gradient(180deg, rgba(var(--dominant-rgb), .07), transparent); }
 .settings-dock-head h2 { margin: 0; font: 700 .75rem/1.4 var(--font-display); text-transform: uppercase; letter-spacing: .14em; color: var(--phosphor); text-shadow: 0 0 10px var(--glow); }
 .settings-dock-head h2::before { content: '▍'; margin-right: 8px; }
 .settings-dock-head .icon-button { width: 30px; height: 30px; }
 .settings-dock-body { flex: 1; min-height: 0; overflow-y: auto; }
-.ember-theme-popover { width: min(400px, calc(100% - var(--rail-width) - 30px)); padding: 0; font-family: var(--font-ui); }
-.ember-theme-popover header { margin: 0; }
+.ember-theme-popover, .ember-sounds-popover { width: min(400px, calc(100% - var(--rail-width) - 30px)); padding: 0; font-family: var(--font-ui); }
+.ember-theme-popover header, .ember-sounds-popover header { margin: 0; }
 .ember-theme-popover { bottom: auto; top: 140px; max-height: calc(100% - 154px); }
+.ember-sounds-popover { bottom: auto; top: 190px; max-height: calc(100% - 204px); }
 .settings-content, .theme-picker, .settings-data { padding: 2px 16px 12px; }
 .settings-data { border-top: 1px solid var(--line-2); }
 .settings-section { margin: 14px 0 8px; color: var(--phosphor); font: 700 .625rem/1.4 var(--font-display); letter-spacing: .16em; text-shadow: 0 0 8px var(--glow); }
@@ -165,6 +173,22 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .settings-note { margin: 8px 0 14px; color: var(--muted); font: .75rem/1.5 var(--font-read); }
 .settings-error { color: var(--danger); }
 .settings-about { margin: 0; padding: 12px 16px 16px; border-top: 1px solid var(--line-2); color: var(--text-2); font: .75rem/1.5 var(--font-read); }
+.sound-panel { padding: 2px 16px 12px; }
+.settings-content .sound-panel { padding: 4px 0 0; border-top: 1px solid var(--line-2); }
+.sound-mute { margin: 12px 0; }
+.sound-volume { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; color: var(--text-2); font-size: .75rem; }
+.sound-volume input { grid-column: 1 / -1; width: 100%; accent-color: var(--phosphor); }
+.sound-volume output { color: var(--text); }
+.sound-list { margin-top: 14px; border-top: 1px solid var(--line-2); }
+.sound-row { display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid var(--line-2); }
+.sound-row label { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; color: var(--text); font: .8125rem var(--font-read); }
+.sound-row label span { display: grid; gap: 2px; }
+.sound-row strong { font-weight: 500; }
+.sound-row small { color: var(--text-2); font-size: .6875rem; }
+.sound-preview { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line-3); background: var(--panel-2); color: var(--phosphor); }
+.sound-preview svg { width: 16px; height: 16px; }
+.sound-preview:disabled { opacity: .4; }
+.sound-preview:not(:disabled):hover { background: var(--tint); }
 .theme-choice { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); text-align: left; }
 .theme-choice + .theme-choice { margin-top: 6px; }
 .theme-choice[aria-pressed='true'] { border-color: var(--phosphor); background: var(--tint); }
