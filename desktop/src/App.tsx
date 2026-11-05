@@ -1,3 +1,4 @@
+import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
 import { Settings } from './Settings';
 import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
@@ -146,7 +147,7 @@ export function App() {
           : leftMode === 'settings' ? <><Settings value={preferences} stored={preferencesStored} update={next => {
               setPreferences(next);
               setPreferencesStored(storePreferences(next));
-            }} />{isNative && import.meta.env.MODE !== 'preview' && <SnapshotImport onImported={reload} />}</>
+            }} />{isNative && import.meta.env.MODE !== 'preview' && <><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></>}</>
           : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
               onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}

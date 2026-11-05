@@ -4,6 +4,7 @@
   "description": "Ember habit operations in the main local window. No direct filesystem or network permission.",
   "windows": ["main"],
   "permissions": [
+    "allow-practice-days", "allow-website-snapshot", "allow-export-history", "allow-restore-history",
     "allow-habits-list", "allow-habits-create", "allow-habits-rename",
     "allow-habits-move", "allow-habits-archive",
     "allow-completions-month", "allow-completions-toggle"

@@ -1,3 +1,4 @@
+mod backup;
 mod import;
 mod storage;
 
@@ -37,6 +38,30 @@ fn with_db<T>(
         Ok(db) => action(db),
         Err(reason) => Err(reason.clone()),
     }
+}
+
+fn copies(db: &Database) -> Result<PathBuf, String> {
+    db.path
+        .as_deref()
+        .and_then(Path::parent)
+        .map(|p| p.join("Exports"))
+        .ok_or("Ember data folder unavailable.".into())
+}
+#[tauri::command]
+fn export_history(db: tauri::State<'_, Database>, kind: String) -> Result<PathBuf, String> {
+    let folder = copies(&db)?;
+    with_db(db, |conn| backup::export(conn, &folder, &kind))
+}
+#[tauri::command]
+fn restore_history(
+    db: tauri::State<'_, Database>,
+    raw: String,
+    confirmation: Option<String>,
+) -> Result<backup::Preview, String> {
+    let folder = copies(&db)?;
+    with_db(db, |conn| {
+        backup::restore(conn, &folder, &raw, confirmation.as_deref())
+    })
 }
 
 #[tauri::command]
@@ -152,6 +177,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            export_history,
+            restore_history,
             website_snapshot,
             habits_list,
             habits_create,

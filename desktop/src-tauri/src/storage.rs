@@ -10,8 +10,8 @@ use std::path::Path;
 /// migration in [`migrate`] and an old-database fixture in `tests/fixtures`.
 pub const SCHEMA_VERSION: i64 = 1;
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, serde::Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Habit {
     pub id: String,
     pub name: String,
@@ -54,7 +54,7 @@ pub fn valid_date(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn valid_name(value: &str) -> Result<&str, String> {
+pub(crate) fn valid_name(value: &str) -> Result<&str, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.chars().count() > 60 || trimmed.chars().any(char::is_control) {
         return Err("Habit names must have 1–60 visible characters.".into());
@@ -63,7 +63,7 @@ fn valid_name(value: &str) -> Result<&str, String> {
 }
 
 /// Habit IDs are generated as `lower(hex(randomblob(16)))` and never change.
-fn valid_id(value: &str) -> Result<&str, String> {
+pub(crate) fn valid_id(value: &str) -> Result<&str, String> {
     if value.len() == 32
         && value
             .bytes()

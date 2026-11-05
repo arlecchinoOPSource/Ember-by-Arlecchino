@@ -137,3 +137,9 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .preference-fields label { display: grid; gap: .35rem; }
 .preference-fields label:has(input) { display: flex; align-items: center; }
 .preference-fields select { max-width: 100%; font: inherit; color: var(--text); background: var(--panel); }
+
+.data-copies { min-width: 0; margin: .75rem 0; padding: .65rem; border: 1px solid var(--line-2); }
+.data-copies button { margin: .2rem; }
+.data-copies label { display: grid; margin-top: .5rem; }
+.data-copies input { max-width: 100%; }
+.data-copies p { overflow-wrap: anywhere; user-select: text; }
