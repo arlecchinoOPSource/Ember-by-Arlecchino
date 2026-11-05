@@ -8,7 +8,7 @@ export function readPreferences(): Preferences {
   try { data = JSON.parse(localStorage.getItem(key) ?? '{}'); } catch { /* Use defaults. */ }
   return {
     theme: parseTheme(data?.theme, 'ember'), motion: parseMotion(data?.motion), sound: data?.sound === true,
-    startupScreen: data?.startupScreen !== false, startupSound: data?.startupSound === true,
+    startupScreen: data?.startupScreen !== false, startupSound: data?.startupSound !== false,
     interfaceSound: data?.interfaceSound === true, muted: data?.muted === true,
     volume: typeof data?.volume === 'number' && Number.isFinite(data.volume) ? Math.max(0, Math.min(100, Math.round(data.volume))) : 70,
   };

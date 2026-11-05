@@ -149,10 +149,8 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .settings-dock-head h2::before { content: '▍'; margin-right: 8px; }
 .settings-dock-head .icon-button { width: 30px; height: 30px; }
 .settings-dock-body { flex: 1; min-height: 0; overflow-y: auto; }
-.ember-theme-popover, .ember-sounds-popover { width: min(400px, calc(100% - var(--rail-width) - 30px)); padding: 0; font-family: var(--font-ui); }
+.ember-theme-popover, .ember-sounds-popover { z-index: 20; inset: 0 0 0 -62px; margin: auto; width: min(400px, calc(100% - 32px)); height: max-content; max-height: calc(100% - 32px); padding: 0; font-family: var(--font-ui); }
 .ember-theme-popover header, .ember-sounds-popover header { margin: 0; }
-.ember-theme-popover { bottom: auto; top: 140px; max-height: calc(100% - 154px); }
-.ember-sounds-popover { bottom: auto; top: 190px; max-height: calc(100% - 204px); }
 .settings-content, .theme-picker, .settings-data { padding: 2px 16px 12px; }
 .settings-data { border-top: 1px solid var(--line-2); }
 .settings-section { margin: 14px 0 8px; color: var(--phosphor); font: 700 .625rem/1.4 var(--font-display); letter-spacing: .16em; text-shadow: 0 0 8px var(--glow); }
@@ -211,4 +209,7 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
   .month-title { min-width: 0; }
   .tool-group { padding-inline: 4px; }
   .grid-title { flex-wrap: wrap; gap: .2rem .5rem; padding-block: .3rem; }
+}
+@media (max-width: 520px) {
+  .ember-theme-popover, .ember-sounds-popover { left: -54px; }
 }
