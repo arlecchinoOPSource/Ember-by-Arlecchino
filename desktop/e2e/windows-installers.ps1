@@ -12,7 +12,15 @@ foreach ($kind in 'nsis','msi') {
     $folder = Join-Path $env:RUNNER_TEMP "installed-ember-$kind"
     if ($kind -eq 'nsis') { Run-Installer $nsis "/S /D=$folder" }
     else { Run-Installer msiexec "/i `"$msi`" /qn /norestart INSTALLDIR=`"$folder`"" }
-    $exe = Get-ChildItem $folder -Filter 'ember-by-arlecchino.exe' -Recurse | Select-Object -First 1
+    # WiX can install the main executable under the product name. Inspect the
+    # actual installation, including the default Program Files location.
+    $roots = @($folder, "$env:ProgramFiles/Ember", "${env:ProgramFiles(x86)}/Ember")
+    $candidates = @($roots | Where-Object { Test-Path $_ } | ForEach-Object {
+        Get-ChildItem $_ -Filter '*.exe' -Recurse | Where-Object { $_.BaseName -in 'Ember','ember-by-arlecchino' }
+    } | Sort-Object FullName -Unique)
+    if ($candidates.Count -gt 1) { throw "Ambiguous installed executables: $($candidates.FullName)" }
+    $exe = $candidates | Select-Object -First 1
+    Write-Host "Installed $kind executable: $($exe.FullName)"
     if (!$exe) { throw "Missing installed $kind app." }
     foreach ($action in 'seed','restart') {
         $log = Join-Path $env:RUNNER_TEMP "ember-$kind-$action.log"
