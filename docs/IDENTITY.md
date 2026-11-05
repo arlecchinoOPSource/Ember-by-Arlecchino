@@ -47,3 +47,9 @@ Calendar cells keep their 40 px rows and sticky date column. Extra habits scroll
 The rail uses the original type-based mark, with 40 px buttons and an 8 px gap. Calendar navigation icons use 26 px buttons.
 
 [Normal](screenshots/issue-14/layout-1160.png), [narrow](screenshots/issue-14/layout-840.png) and [minimum](screenshots/issue-14/layout-680.png) comparisons show the same synthetic WebKit preview before and after. The issue 9 screenshots above include Terminal at normal and minimum widths. The [installed macOS window](screenshots/issue-14/mac-review.png) uses a separate November test profile. Packaged Windows appearance awaits verification.
+
+## Issue 15 external application icon proposal
+
+The SVG retains the orange tile and the suite chevron. The italic e is slightly taller and sits higher and farther left to give its counter and the gap before the chevron more room at Dock sizes. Its outline comes from IBM Plex Sans Condensed SemiBold Italic (SIL OFL 1.1); the project artwork is licensed under MIT. Per owner review, the scope is the external application icon.
+
+[Compare Terminal, the previous Ember icon, and the proposed Mac and Windows icons at 96, 32 and 16 px](screenshots/issue-15/icons.png). The Mac candidate was decoded from the installed Ember Interface Test bundle. The Windows image was decoded from the ICO resource; installed Windows appearance awaits verification.

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <!-- Ember app icon. Same tile, rim, scanlines and glow as Terminal's icon (assets/terminal-icon.svg
        in Terminal 2.0.0), recoloured to Ember Orange. The italic "e" is IBM Plex Sans Condensed
-       SemiBold Italic (SIL OFL 1.1) converted to a path at the same scale and baseline as Terminal's "t";
+       SemiBold Italic (SIL OFL 1.1) converted to a path with an optically aligned bowl and open counter;
        the chevron is Terminal's. Source for `npm run tauri icon`; paths only, no fonts. -->
   <defs>
     <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="184"/></clipPath>
@@ -47,7 +47,7 @@
     </filter>
     <g id="glyph">
       <!-- Italic "e" and Terminal's upright chevron, on the 1024 grid. -->
-      <path transform="translate(22 24) scale(1.9) translate(139 382) scale(.345 -.345)" d="M218 -12Q119 -12 74.5 40.5Q30 93 30 188Q30 212 32.5 241.0Q35 270 40 294Q65 411 127.5 472.5Q190 534 290 534Q364 534 409.5 497.5Q455 461 455 392Q455 303 381.5 260.5Q308 218 149 214Q146 202 145.0 189.5Q144 177 144 168Q144 125 162.0 103.5Q180 82 222 82Q263 82 294.5 100.0Q326 118 353 160L424 101Q385 41 334.5 14.5Q284 -12 218 -12ZM276 444Q234 444 209.0 415.5Q184 387 172 329L164 291Q218 294 252.5 300.5Q287 307 307.0 318.5Q327 330 334.5 345.5Q342 361 342 382Q342 444 276 444Z"/>
+      <path transform="translate(22 24) scale(1.9) translate(125 369) scale(.37 -.37)" d="M218 -12Q119 -12 74.5 40.5Q30 93 30 188Q30 212 32.5 241.0Q35 270 40 294Q65 411 127.5 472.5Q190 534 290 534Q364 534 409.5 497.5Q455 461 455 392Q455 303 381.5 260.5Q308 218 149 214Q146 202 145.0 189.5Q144 177 144 168Q144 125 162.0 103.5Q180 82 222 82Q263 82 294.5 100.0Q326 118 353 160L424 101Q385 41 334.5 14.5Q284 -12 218 -12ZM276 444Q234 444 209.0 415.5Q184 387 172 329L164 291Q218 294 252.5 300.5Q287 307 307.0 318.5Q327 330 334.5 345.5Q342 361 342 382Q342 444 276 444Z"/>
       <path transform="translate(22 24) scale(1.9)" d="m311 206 57 50-57 50" fill="none" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   </defs>
