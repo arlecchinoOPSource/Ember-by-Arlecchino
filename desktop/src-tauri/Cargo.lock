@@ -717,6 +717,7 @@ dependencies = [
  "chrono",
  "rusqlite",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
 ]

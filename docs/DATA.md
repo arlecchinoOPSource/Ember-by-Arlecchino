@@ -9,3 +9,5 @@ Before 1.0, backup/restore must use a versioned format with validation and a pre
 Practice streaks count consecutive local calendar days with at least one eligible completion across all habits, including archived history. Current ends today or yesterday, giving the user until midnight to record today. Longest covers all recorded days through today, independent of the month on screen.
 
 Theme, motion, sound and panel choices live in Ember's local webview settings, separately from SQLite. The bundled completion cue is an original synthesized tone, distributed under this repository's MIT license. It is muted by default.
+
+In the desktop app, open Settings and choose a website snapshot JSON file. Ember checks all 61 dates and ten bit positions locally, then shows a preview. A nonzero future day is invalid. Confirmation rechecks for collisions inside the write transaction. Any matching import ID or existing habit name blocks the entire import, including a repeat import. Successful imports append the ten habits in website order with a November 1 start date. The importer never merges by name.

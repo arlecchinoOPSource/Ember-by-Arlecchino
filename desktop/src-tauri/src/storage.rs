@@ -23,7 +23,7 @@ pub struct Habit {
 
 /// Turns a SQLite failure into a message a person can act on. The raw error goes to stderr
 /// for diagnostics; it is never treated as a successful save.
-fn failed(context: &'static str) -> impl Fn(rusqlite::Error) -> String {
+pub(crate) fn failed(context: &'static str) -> impl Fn(rusqlite::Error) -> String {
     move |error| {
         eprintln!("ember storage: could not {context}: {error}");
         let hint = match error.sqlite_error_code() {
@@ -393,6 +393,53 @@ mod tests {
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap()
+    }
+
+    #[test]
+    fn simulate_november_ten_habit_stack() {
+        use crate::import::HABITS;
+        let dir = TempDir::new("november-stack");
+        let path = dir.db();
+        let mut db = open_database(&path).unwrap();
+        // Create in reverse, then use the same move operation as the habit manager.
+        for (_, name) in HABITS.iter().rev() {
+            create(&db, name, "2026-11-01").unwrap();
+        }
+        for (target, (_, name)) in HABITS.iter().enumerate() {
+            let current = list(&db).unwrap();
+            let index = current.iter().position(|h| h.name == *name).unwrap();
+            for _ in target..index {
+                move_habit(&mut db, &current[index].id, -1).unwrap();
+            }
+        }
+        let stack = list(&db).unwrap();
+        assert!(
+            stack
+                .iter()
+                .map(|h| h.name.as_str())
+                .eq(HABITS.map(|(_, name)| name))
+        );
+        let mut expected = Vec::new();
+        // Start with Workout, add one practice per day, then keep the complete stack.
+        for day in 1..=30 {
+            let date = format!("2026-11-{day:02}");
+            for h in stack.iter().take(day.min(10)) {
+                assert!(toggle(&mut db, &h.id, &date, &date).unwrap());
+                expected.push((h.id.clone(), date.clone()));
+            }
+            // Exercise correcting a check and restoring it before closing for the day.
+            assert!(!toggle(&mut db, &stack[0].id, &date, &date).unwrap());
+            assert!(toggle(&mut db, &stack[0].id, &date, &date).unwrap());
+            drop(db);
+            db = open_database(&path).unwrap();
+            assert_eq!(list(&db).unwrap(), stack);
+            let actual = month_rows(&db, 2026, 11).unwrap();
+            assert_eq!(actual.len(), expected.len());
+            assert!(expected.iter().all(|row| actual.contains(row)));
+        }
+        assert_eq!(expected.len(), 255);
+        assert_eq!(practice_days(&db).unwrap().len(), 30);
+        assert!(month_rows(&db, 2026, 12).unwrap().is_empty());
     }
 
     #[test]

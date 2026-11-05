@@ -1,3 +1,4 @@
+mod import;
 mod storage;
 
 use chrono::Local;
@@ -36,6 +37,15 @@ fn with_db<T>(
         Ok(db) => action(db),
         Err(reason) => Err(reason.clone()),
     }
+}
+
+#[tauri::command]
+fn website_snapshot(
+    db: tauri::State<'_, Database>,
+    raw: String,
+    confirm: bool,
+) -> Result<import::Preview, String> {
+    with_db(db, |conn| import::run(conn, &raw, &today(), confirm))
 }
 
 #[tauri::command]
@@ -142,6 +152,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            website_snapshot,
             habits_list,
             habits_create,
             habits_rename,

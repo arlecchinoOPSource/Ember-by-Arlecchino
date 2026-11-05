@@ -1,3 +1,4 @@
+import { SnapshotImport } from './SnapshotImport';
 import { Settings } from './Settings';
 import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
 import { isTauri } from '@tauri-apps/api/core';
@@ -41,11 +42,8 @@ export function App() {
     const [items, rows, practice] = await Promise.all([native.listHabits(), native.monthCompletions(target.year, target.month), native.practiceDays()]);
     return { items, practice, done: new Set(rows.map(([id, date]) => `${id}:${date}`)) };
   }, []);
-  const reload = useCallback(() => {
-    setError(''); setStatus('loading');
-    load(at).then(({ items, practice, done }) => { setOpened(true); setDays(new Map(practice)); setHabits(items); setCompletions(done); setStatus('ready'); })
-      .catch(reason => { setStatus('load-error'); setError(String(reason)); });
-  }, [at, load]);
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision(previous => previous + 1), []);
   useEffect(() => {
     if (!isNative) { setStatus('ready'); return; }
     let live = true;
@@ -53,7 +51,7 @@ export function App() {
     load(at).then(({ items, practice, done }) => { if (live) { setOpened(true); setDays(new Map(practice)); setHabits(items); setCompletions(done); setStatus('ready'); setError(''); } })
       .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); } });
     return () => { live = false; };
-  }, [at, isNative, load]);
+  }, [at, isNative, load, revision]);
 
   /** Runs one change; reports saved only after the native command (and SQLite) succeeded. */
   async function change(action: () => Promise<void>): Promise<boolean> {
@@ -145,10 +143,10 @@ export function App() {
       <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : leftMode === 'settings' ? 'Settings' : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : leftMode === 'settings' ? 'SETTINGS' : 'HABITS'}>
         {leftMode === 'archive'
           ? <ArchiveList at={at} today={today} busy={false} onSelect={month => { go({ year: at.year, month }); if (narrow) setLeftOpen(false); }} onYear={year => go(withYear(at, year))} />
-          : leftMode === 'settings' ? <Settings value={preferences} stored={preferencesStored} update={next => {
+          : leftMode === 'settings' ? <><Settings value={preferences} stored={preferencesStored} update={next => {
               setPreferences(next);
               setPreferencesStored(storePreferences(next));
-            }} />
+            }} />{isNative && import.meta.env.MODE !== 'preview' && <SnapshotImport onImported={reload} />}</>
           : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
               onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}

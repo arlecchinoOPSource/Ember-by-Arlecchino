@@ -2,7 +2,9 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Habit } from './calendar';
 
 /** Typed wrappers for Ember's native commands (src-tauri/src/lib.rs). Each resolves only after SQLite committed. */
+export interface ImportPreview { habits: number; completions: number; collisions: string[] }
 export const native = {
+  websiteSnapshot: (raw: string, confirm: boolean) => invoke<ImportPreview>('website_snapshot', { raw, confirm }),
   practiceDays: () => invoke<[string, number][]>('practice_days'),
   listHabits: () => invoke<Habit[]>('habits_list'),
   createHabit: (name: string) => invoke<Habit[]>('habits_create', { name }),
