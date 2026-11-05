@@ -62,7 +62,7 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       const prefix = `${args.year}-${pad(Number(args.month))}-`;
       return [...completions].map(k => k.split('|') as [string, string]).filter(([, d]) => d.startsWith(prefix)).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
     }
-    case 'habits_create': { const name = validName(args.name); write(); habits.push({ id: newId(), name, sortOrder: Math.max(-1, ...habits.map(h => h.sortOrder)) + 1, startDate: today(), archivedAt: null }); return sorted(); }
+    case 'habits_create': { const name = validName(args.name); if (habits.some(h => h.archivedAt === null && h.name.toLocaleLowerCase() === name.toLocaleLowerCase())) fail('An active habit already has this name. Choose a different name.'); write(); habits.push({ id: newId(), name, sortOrder: Math.max(-1, ...habits.map(h => h.sortOrder)) + 1, startDate: today(), archivedAt: null }); return sorted(); }
     case 'habits_rename': { const name = validName(args.name); const h = active(String(args.id)); write(); h.name = name; return sorted(); }
     case 'habits_archive': { const h = active(String(args.id)); write(); h.archivedAt = today() > h.startDate ? today() : h.startDate; return sorted(); }
     case 'habits_move': {

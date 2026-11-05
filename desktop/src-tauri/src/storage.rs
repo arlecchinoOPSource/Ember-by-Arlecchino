@@ -168,6 +168,11 @@ pub fn list(db: &Connection) -> Result<Vec<Habit>, String> {
 pub fn create(db: &Connection, name: &str, start_date: &str) -> Result<(), String> {
     let name = valid_name(name)?;
     valid_date(start_date)?;
+    if list(db)?.iter().any(|habit| {
+        habit.archived_at.is_none() && habit.name.to_lowercase() == name.to_lowercase()
+    }) {
+        return Err("An active habit already has this name. Choose a different name.".into());
+    }
     db.execute(
         "INSERT INTO habits (id, name, sort_order, start_date)
          VALUES (lower(hex(randomblob(16))), ?1, (SELECT coalesce(max(sort_order), -1) + 1 FROM habits), ?2)",
@@ -619,6 +624,24 @@ mod tests {
         assert!(move_habit(&mut db, &b, 1).is_err());
         assert!(archive(&db, &b, "2026-11-05").is_err());
         assert!(move_habit(&mut db, &a, 2).is_err());
+    }
+
+    #[test]
+    fn duplicate_active_name_is_rejected_without_writing_and_archived_name_can_be_reused() {
+        let db = memory();
+        create(&db, "Read", "2026-11-01").unwrap();
+        let original_id = list(&db).unwrap()[0].id.clone();
+        assert!(
+            create(&db, " read ", "2026-11-02")
+                .unwrap_err()
+                .contains("already has this name")
+        );
+        assert_eq!(list(&db).unwrap().len(), 1);
+        assert_eq!(list(&db).unwrap()[0].id, original_id);
+        archive(&db, &original_id, "2026-11-03").unwrap();
+        create(&db, "Read", "2026-11-04").unwrap();
+        assert_eq!(list(&db).unwrap().len(), 2);
+        assert_eq!(list(&db).unwrap()[0].id, original_id);
     }
 
     #[test]

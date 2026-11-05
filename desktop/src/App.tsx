@@ -2,6 +2,7 @@ import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
 import { Settings, ThemePicker } from './Settings';
 import { SoundPanel } from './SoundPanel';
+import { NewHabitPanel } from './NewHabitPanel';
 import { applyPreferences, readPreferences, storePreferences } from './preferences';
 import { sounds } from './sounds';
 import { isTauri } from '@tauri-apps/api/core';
@@ -47,12 +48,12 @@ export function App() {
   const narrow = useMediaQuery(NARROW_QUERY);
   const [leftOpen, setLeftOpen] = usePanel('left', narrow);
   const [rightOpen, setRightOpen] = usePanel('right', narrow);
-  const addRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
   const themesRef = useRef<HTMLButtonElement>(null);
   const soundRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLElement>(null);
-  const [panel, setPanel] = useState<'themes' | 'sounds' | 'settings' | null>(null);
+  const [panel, setPanel] = useState<'themes' | 'sounds' | 'settings' | 'new-habit' | null>(null);
   const isNative = isTauri();
   // A launch decision, so changing Settings does not replay the screen mid-session.
   const [startupVisible, setStartupVisible] = useState(() => isNative && preferences.startupScreen);
@@ -138,8 +139,7 @@ export function App() {
     setLeftMode(mode); setLeftOpen(true);
   }
   function startNewHabit() {
-    setLeftMode('habits'); setLeftOpen(true);
-    requestAnimationFrame(() => addRef.current?.focus());
+    setError(''); setPanel('new-habit');
   }
   const toggle = (habit: Habit, date: string) => change(async () => {
     const checked = await native.toggleCompletion(habit.id, date);
@@ -185,12 +185,19 @@ export function App() {
     </button>
     <IconButton ref={themesRef} icon="themes" label="Themes" aria-expanded={panel === 'themes'} aria-controls="theme-panel" onClick={() => setPanel(current => current === 'themes' ? null : 'themes')} />
     <IconButton ref={soundRef} icon="sounds" label="Sounds" aria-expanded={panel === 'sounds'} aria-controls="sounds-panel" onClick={() => setPanel(current => current === 'sounds' ? null : 'sounds')} />
-    <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
+    <IconButton ref={addRef} icon="plus" label="Add habit" aria-expanded={panel === 'new-habit'} aria-controls="new-habit-panel" onClick={startNewHabit} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
     {panel === 'themes' && <Popover id="theme-panel" title="Themes" className="ember-theme-popover" scrim onClose={() => setPanel(null)} triggerRef={themesRef}><ThemePicker current={preferences.theme} onSelect={theme => updatePreferences({ ...preferences, theme })} /></Popover>}
     {panel === 'sounds' && <Popover id="sounds-panel" title="Sounds" className="ember-sounds-popover" scrim onClose={() => setPanel(null)} triggerRef={soundRef}><SoundPanel value={preferences} update={updatePreferences} /></Popover>}
+    {panel === 'new-habit' && <Popover id="new-habit-panel" title="New habit" className="ember-new-habit-popover" scrim canClose={!busy} onClose={() => setPanel(null)} triggerRef={addRef}>
+      <NewHabitPanel habits={habits} busy={busy} native={isNative} error={status === 'save-error' ? error : ''} onCancel={() => { setPanel(null); addRef.current?.focus(); }} onCreate={async name => {
+        const saved = await change(async () => setHabits(await native.createHabit(name)));
+        if (saved) { setPanel(null); addRef.current?.focus(); }
+        return saved;
+      }} />
+    </Popover>}
     {panel === 'settings' && <aside id="settings-panel" ref={settingsPanelRef} className="settings-dock suite-frame" aria-labelledby="settings-panel-title" tabIndex={-1}>
       <header className="settings-dock-head"><h2 id="settings-panel-title">Settings</h2><button type="button" className="icon-button" aria-label="Close settings" onClick={() => { setPanel(null); settingsRef.current?.focus(); }}><Icon name="close" /></button></header>
       <div className="settings-dock-body">
@@ -219,8 +226,7 @@ export function App() {
       <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : 'HABITS'}>
         {leftMode === 'archive'
           ? <ArchiveList at={at} today={today} busy={false} onSelect={month => { go({ year: at.year, month }); if (narrow) setLeftOpen(false); }} onYear={year => go(withYear(at, year))} />
-          : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
-              onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
+          : <HabitManager habits={habits} busy={busy}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}
               onMove={(habit, direction) => void change(async () => setHabits(await native.moveHabit(habit.id, direction)))}
               onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))} />}
