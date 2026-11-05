@@ -65,6 +65,8 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
     case 'habits_create': { const name = validName(args.name); if (habits.some(h => h.archivedAt === null && h.name.toLocaleLowerCase() === name.toLocaleLowerCase())) fail('An active habit already has this name. Choose a different name.'); write(); habits.push({ id: newId(), name, sortOrder: Math.max(-1, ...habits.map(h => h.sortOrder)) + 1, startDate: today(), archivedAt: null }); return sorted(); }
     case 'habits_rename': { const name = validName(args.name); const h = active(String(args.id)); write(); h.name = name; return sorted(); }
     case 'habits_archive': { const h = active(String(args.id)); write(); h.archivedAt = today() > h.startDate ? today() : h.startDate; return sorted(); }
+    case 'habits_delete_preview': { const h = habits.find(h => h.id === args.id && h.archivedAt !== null) ?? fail('Only archived habits can be deleted.'); const dates = [...completions].filter(k => k.startsWith(`${h.id}|`)).sort(); return { completions: dates.length, token: JSON.stringify(dates) }; }
+    case 'habits_delete_archived': { const h = habits.find(h => h.id === args.id && h.archivedAt !== null) ?? fail('Only archived habits can be deleted.'); const dates = [...completions].filter(k => k.startsWith(`${h.id}|`)).sort(); if (JSON.stringify(dates) !== args.token) fail('Habit history changed. Review the deletion again.'); write(); for (const date of dates) completions.delete(date); habits.splice(habits.indexOf(h), 1); return sorted(); }
     case 'habits_move': {
       const h = active(String(args.id)); const dir = Number(args.direction);
       if (dir !== 1 && dir !== -1) fail('Invalid move direction.');
@@ -79,8 +81,9 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       if (!validDate(date)) fail('Use a valid calendar date.');
       if (date > today()) fail('Future dates cannot be completed.');
       const h = habits.find(o => o.id === args.id) ?? fail('Habit not found.');
-      if (date < h.startDate || (h.archivedAt !== null && date > h.archivedAt)) fail('This habit is not active on that date.');
+      if (h.archivedAt !== null && (date < h.startDate || date > h.archivedAt)) fail('This habit is not active on that date.');
       write();
+      if (date < h.startDate) h.startDate = date;
       const k = `${h.id}|${date}`;
       if (completions.delete(k)) return false;
       completions.add(k);

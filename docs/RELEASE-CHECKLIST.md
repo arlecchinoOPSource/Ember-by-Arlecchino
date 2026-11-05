@@ -16,3 +16,15 @@ Verification on 5 November 2026. Candidate version 1.0.0, SQLite schema v1.
 - [x] Tracked file inventory and common secret patterns reviewed. Private Site, local copies, signing keys and build output excluded. The Mac bundle was inspected for private data files and expected license resources. The Windows MSI file-copy inventory contained the app executable, MIT notice, and both font licenses.
 - [x] Candidate rebuilt after issue #9 (interface, fonts, icons) by `.github/workflows/release-candidate.yml` ([run 41981196663](https://github.com/arlecchinoOPSource/Ember-by-Arlecchino/actions/runs/41981196663)): macOS universal DMG and app (strict codesign and hdiutil verification passed), Windows x64 NSIS and MSI, with SHA-256 checksums. The installed-app checks above were run on the pre-#9 build; the owner reviewed this candidate.
 - [x] Owner approved public release of 1.0.0 on 5 November 2026. `release-assets.yml` attaches the approved run's files to the release.
+
+## Ember 2.0 test candidate for issue #22
+
+Local Apple Silicon candidate `2.0.0-rc.2` was built on 6 November 2026 from the Issue 22 branch with SQLite schema v1. It includes the archived-habit deletion flow, past-day backfill, sound controls, and the macOS startup and exit audio changes. This is a test build, not a published release.
+
+- [x] `desktop/npm run check`: 22 Rust storage tests passed, with synthetic records and no schema migration. The tests include stale deletion previews, unaffected history, database reopen, and backup exclusion after deletion.
+- [x] `desktop/npm run test:ui`: 24 Chromium UI tests passed, including deletion confirmation and past-day backfill.
+- [x] Apple Silicon DMG verified by `hdiutil verify`; the mounted app passed strict `codesign` verification. Both locally bundled startup and close WAVs were present. The packaged app launched using an isolated temporary profile and created its local database there.
+- [ ] Owner to verify startup timing and exit sound audibly using the `2.0.0-rc.2` installer. The isolated launch check did not exercise a real macOS Quit action.
+- [ ] Installed-app upgrade from a synthetic 1.0 profile, interactive deletion/export checks, and accessibility review remain to be completed.
+- [ ] Windows NSIS/MSI build and installed-app checks for this candidate remain to be completed. The earlier 1.0 Windows results above do not verify this candidate.
+- [ ] Complete remaining 2.0 issue review, release notes, asset inventory, and owner approval before publishing. This local DMG is ad-hoc signed and unnotarized.

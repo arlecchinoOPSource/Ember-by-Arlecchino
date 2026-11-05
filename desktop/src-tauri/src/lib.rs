@@ -7,7 +7,53 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use storage::Habit;
-use tauri::Manager;
+use tauri::{Emitter, Manager, path::BaseDirectory};
+
+#[cfg(target_os = "macos")]
+fn play_system_cue(app: &tauri::AppHandle, cue: &str, volume: u8) -> Option<std::process::Child> {
+    let path = app
+        .path()
+        .resolve(format!("sounds/{cue}.wav"), BaseDirectory::Resource)
+        .ok()?;
+    std::process::Command::new("/usr/bin/afplay")
+        .arg("-v")
+        .arg(format!("{:.2}", f32::from(volume.min(100)) / 100.0))
+        .arg(path)
+        .spawn()
+        .ok()
+}
+
+#[tauri::command]
+fn play_startup_sound(app: tauri::AppHandle, volume: u8) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        play_system_cue(&app, "startup", volume).ok_or("Could not play the startup sound.")?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, volume);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn finish_exit(app: tauri::AppHandle, play_sound: bool, volume: u8) {
+    #[cfg(target_os = "macos")]
+    if play_sound {
+        let app_for_audio = app.clone();
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            if let Some(mut child) = play_system_cue(&app_for_audio, "close", volume) {
+                let _ = child.wait();
+            }
+        })
+        .await;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (play_sound, volume);
+    }
+    app.exit(0);
+}
 
 /// The open database, or the reason it could not be opened. Keeping the failure lets the
 /// window start and show an actionable message instead of the app exiting at launch; the
@@ -114,6 +160,24 @@ fn habits_archive(db: tauri::State<'_, Database>, id: String) -> Result<Vec<Habi
     })
 }
 #[tauri::command]
+fn habits_delete_preview(
+    db: tauri::State<'_, Database>,
+    id: String,
+) -> Result<storage::DeletePreview, String> {
+    with_db(db, |conn| storage::delete_preview(conn, &id))
+}
+#[tauri::command]
+fn habits_delete_archived(
+    db: tauri::State<'_, Database>,
+    id: String,
+    token: String,
+) -> Result<Vec<Habit>, String> {
+    with_db(db, |conn| {
+        storage::delete_archived(conn, &id, &token)?;
+        storage::list(conn)
+    })
+}
+#[tauri::command]
 fn practice_days(db: tauri::State<'_, Database>) -> Result<Vec<(String, i64)>, String> {
     with_db(db, |conn| storage::practice_days(conn))
 }
@@ -185,10 +249,23 @@ pub fn run() {
             habits_rename,
             habits_move,
             habits_archive,
+            habits_delete_preview,
+            habits_delete_archived,
             practice_days,
             completions_month,
-            completions_toggle
+            completions_toggle,
+            finish_exit,
+            play_startup_sound
         ])
-        .run(tauri::generate_context!())
-        .expect("Ember could not start");
+        .build(tauri::generate_context!())
+        .expect("Ember could not start")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested {
+                code: None, api, ..
+            } = event
+            {
+                api.prevent_exit();
+                let _ = app.emit("ember:exit-requested", ());
+            }
+        });
 }

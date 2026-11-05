@@ -5,7 +5,8 @@ import { SoundPanel } from './SoundPanel';
 import { NewHabitPanel } from './NewHabitPanel';
 import { applyPreferences, readPreferences, storePreferences } from './preferences';
 import { sounds } from './sounds';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StartupScreen, StatusBar, SvgIcon, type Readiness, type StatusTone } from '@arlecchino/suite-ui';
@@ -62,24 +63,36 @@ export function App() {
   useEffect(() => {
     if (startupCueAttempted.current) return;
     startupCueAttempted.current = true;
-    if (startupVisible) sounds.play('startup');
+    if (startupVisible && (!isMac || import.meta.env.MODE === 'preview')) sounds.play('startup');
   }, []);
   const busy = status === 'loading' || status === 'saving';
   const statusRef = useRef(status);
   statusRef.current = status;
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
   useEffect(() => {
     if (!isNative || import.meta.env.MODE === 'preview') return;
     let disposed = false;
     let closing = false;
     let unlisten: (() => void) | undefined;
-    void getCurrentWindow().onCloseRequested(event => {
-      event.preventDefault();
+    let unlistenExit: (() => void) | undefined;
+    function finish() {
       if (closing || statusRef.current === 'saving') return;
       closing = true;
-      const played = sounds.play('close');
-      window.setTimeout(() => { if (!disposed) void getCurrentWindow().destroy(); }, played ? 6000 : 0);
+      const settings = preferencesRef.current;
+      if (isMac) {
+        void invoke('finish_exit', { playSound: settings.startupSound && !settings.muted && settings.volume > 0, volume: settings.volume });
+      } else {
+        const played = sounds.play('close');
+        window.setTimeout(() => { if (!disposed) void invoke('finish_exit', { playSound: false, volume: 0 }); }, played ? 6100 : 0);
+      }
+    }
+    void getCurrentWindow().onCloseRequested(event => {
+      event.preventDefault();
+      finish();
     }).then(stop => { if (disposed) stop(); else unlisten = stop; }).catch(() => { /* Native close handling is unavailable. */ });
-    return () => { disposed = true; unlisten?.(); };
+    void listen('ember:exit-requested', finish).then(stop => { if (disposed) stop(); else unlistenExit = stop; });
+    return () => { disposed = true; unlisten?.(); unlistenExit?.(); };
   }, [isNative]);
 
   const load = useCallback(async (target: YearMonth) => {
@@ -152,6 +165,7 @@ export function App() {
     });
     if (checked) sounds.play('completion');
     setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
+    if (date < habit.startDate) reload();
   });
 
   const tone: StatusTone = !isNative ? 'idle' : busy ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
@@ -229,7 +243,8 @@ export function App() {
           : <HabitManager habits={habits} busy={busy}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}
               onMove={(habit, direction) => void change(async () => setHabits(await native.moveHabit(habit.id, direction)))}
-              onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))} />}
+              onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))}
+              onDelete={(habit, token) => change(async () => { await native.deleteArchived(habit.id, token); reload(); })} />}
       </SidePanel>
 
       <main className="grid-area suite-frame" aria-labelledby="grid-title">

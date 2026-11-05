@@ -34,7 +34,6 @@ export class SoundManager {
     try {
       const audio = this.create(this.urls[cue]);
       audio.volume = this.settings.volume / 100;
-      if (cue === 'startup') audio.playbackRate = 1.25;
       audio.onended = () => { if (this.active === audio) { this.active = null; this.activeCue = null; } };
       this.active = audio;
       this.activeCue = cue;

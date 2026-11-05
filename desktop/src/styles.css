@@ -74,7 +74,10 @@ html, body, #root { min-width: 0; }
 .archived-list { margin-top: 1rem; font-size: .6875rem; color: var(--text-2); }
 .archived-list summary { cursor: pointer; letter-spacing: .1em; text-transform: uppercase; }
 .archived-list ul { list-style: none; margin: .5rem 0 0; padding: 0; }
-.archived-list li { display: flex; justify-content: space-between; gap: .5rem; padding: .3rem 0; border-top: 1px solid var(--line); }
+.archived-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .25rem .5rem; padding: .4rem 0; border-top: 1px solid var(--line); }
+.archived-list li > span { min-width: 0; overflow-wrap: anywhere; }
+.archived-list li > small { grid-column: 1; white-space: normal; }
+.archived-list li > button { grid-column: 2; grid-row: 1 / 3; width: auto; max-width: 100%; min-height: 28px; padding: 2px 8px; font-size: .6875rem; }
 .archived-list small { color: var(--muted); white-space: nowrap; }
 .quiet { font: .8125rem/1.6 var(--font-read); color: var(--text-2); }
 dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16); }

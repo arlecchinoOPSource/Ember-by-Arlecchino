@@ -49,7 +49,7 @@ test('volume follows settings and rejected playback is harmless', async () => {
   manager.configure({ ...settings, startupSound: true, volume: 35 });
   assert.equal(manager.play('startup'), true);
   assert.equal(voices[0].volume, .35);
-  assert.equal(voices[0].playbackRate, 1.25);
+  assert.equal(voices[0].playbackRate, undefined);
   await Promise.resolve();
   assert.equal(voices[0].paused, true);
   manager.configure({ ...settings, interfaceSound: true, volume: 0 });

@@ -77,6 +77,18 @@ test('future and inactive days are announced, focusable, and cannot be toggled',
   await expect(statusBar(page)).toHaveText('READY');
 });
 
+test('an active habit can be checked on an earlier day', async ({ page }) => {
+  await open(page, '2026-11-06T10:00:00');
+  await page.getByRole('button', { name: 'Add habit' }).click();
+  await page.getByRole('textbox', { name: 'Habit name' }).fill('Backfill test');
+  await page.getByRole('button', { name: 'Save habit' }).click();
+  const cell = grid(page).getByRole('button', { name: /^Backfill test, Thursday, November 5, 2026/ });
+  await expect(cell).not.toHaveAttribute('aria-disabled', 'true');
+  await cell.click();
+  await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await expect(statusBar(page)).toHaveText('READY');
+});
+
 test('columns follow the saved order; archived habits stay in their historical months', async ({ page }) => {
   await open(page);
   // "Old routine" was archived on 1 December (today − 30 days): visible in December and November, gone in January.
