@@ -1,135 +1,156 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { AppShell, BrandMark, IconButton, IdentityStrip, Rail, StatusBar, type StatusTone } from '@arlecchino/suite-ui';
+import { isTauri } from '@tauri-apps/api/core';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppShell, BrandMark, IconButton, IdentityStrip, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
+import { MONTH_NAMES, canShift, monthDates, monthStats, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
+import { HabitGrid } from './HabitGrid';
+import { NARROW_QUERY, useMediaQuery, usePanel, useToday } from './hooks';
+import { native } from './native';
+import { ArchiveList, HabitManager, SidePanel, Summary } from './Panels';
 
-type Habit = { id: string; name: string; sortOrder: number; startDate: string; archivedAt: string | null };
-type Completion = [habitId: string, date: string];
 type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'load-error' | 'save-error';
+type LeftMode = 'archive' | 'habits';
 
-const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const now = new Date();
-const dateKey = (year: number, month: number, day: number) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-const localToday = () => dateKey(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
-// A habit is eligible from its start date through its archive date (its last active day), inclusive.
-const isEligible = (habit: Habit, date: string) => habit.startDate <= date && (habit.archivedAt === null || date <= habit.archivedAt);
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const mod = isMac ? '⌘' : 'Ctrl';
+const ariaMod = isMac ? 'Meta' : 'Control';
 
 export function App() {
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const today = useToday();
+  const [at, setAt] = useState<YearMonth>(() => { const { year, month } = parseDateKey(today); return { year, month }; });
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState('');
-  const [newName, setNewName] = useState('');
-  const [activePanel, setActivePanel] = useState<'archive' | 'habits'>('archive');
-  const native = isTauri();
+  const [leftMode, setLeftMode] = useState<LeftMode>('archive');
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const [leftOpen, setLeftOpen] = usePanel('left', narrow);
+  const [rightOpen, setRightOpen] = usePanel('right', narrow);
+  const addRef = useRef<HTMLInputElement>(null);
+  const isNative = isTauri();
   const busy = status === 'loading' || status === 'saving';
 
-  const loadHabits = useCallback(async () => setHabits(await invoke<Habit[]>('habits_list')), []);
-  const loadMonth = useCallback(async (targetYear: number, targetMonth: number) => {
-    const rows = await invoke<Completion[]>('completions_month', { year: targetYear, month: targetMonth });
-    setCompletions(new Set(rows.map(([id, date]) => `${id}:${date}`)));
+  const load = useCallback(async (target: YearMonth) => {
+    const [items, rows] = await Promise.all([native.listHabits(), native.monthCompletions(target.year, target.month)]);
+    return { items, done: new Set(rows.map(([id, date]) => `${id}:${date}`)) };
   }, []);
+  const reload = useCallback(() => {
+    setError(''); setStatus('loading');
+    load(at).then(({ items, done }) => { setHabits(items); setCompletions(done); setStatus('ready'); })
+      .catch(reason => { setStatus('load-error'); setError(String(reason)); });
+  }, [at, load]);
   useEffect(() => {
-    if (!native) { setStatus('ready'); return; }
+    if (!isNative) { setStatus('ready'); return; }
     let live = true;
     setStatus('loading');
-    Promise.all([invoke<Habit[]>('habits_list'), invoke<Completion[]>('completions_month', { year, month })])
-      .then(([items, rows]) => { if (live) { setHabits(items); setCompletions(new Set(rows.map(([id, date]) => `${id}:${date}`))); setStatus('ready'); setError(''); } })
+    load(at).then(({ items, done }) => { if (live) { setHabits(items); setCompletions(done); setStatus('ready'); setError(''); } })
       .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); } });
     return () => { live = false; };
-  }, [year, month, native]);
+  }, [at, isNative, load]);
 
-  async function change(action: () => Promise<void>) {
-    if (busy || !native) return;
+  /** Runs one change; reports saved only after the native command (and SQLite) succeeded. */
+  async function change(action: () => Promise<void>): Promise<boolean> {
+    if (busy || !isNative) return false;
     setStatus('saving'); setError('');
-    // 'saved' is only shown after the native command returns, i.e. after SQLite committed.
-    try { await action(); setStatus('saved'); }
-    catch (reason) { setStatus('save-error'); setError(String(reason)); }
-  }
-  function shiftMonth(offset: number) {
-    const target = new Date(year, month - 1 + offset, 1);
-    setYear(target.getFullYear()); setMonth(target.getMonth() + 1);
-  }
-  function today() { const value = new Date(); setYear(value.getFullYear()); setMonth(value.getMonth() + 1); }
-  async function addHabit(event: FormEvent) {
-    event.preventDefault();
-    const name = newName.trim();
-    if (!name) return;
-    await change(async () => { const updated = await invoke<Habit[]>('habits_create', { name }); setHabits(updated); setNewName(''); });
-  }
-  async function renameHabit(habit: Habit) {
-    const value = window.prompt('Rename habit', habit.name);
-    if (value === null || value.trim() === habit.name) return;
-    await change(async () => setHabits(await invoke<Habit[]>('habits_rename', { id: habit.id, name: value })));
-  }
-  async function archiveHabit(habit: Habit) {
-    if (!window.confirm(`Archive ${habit.name}? Earlier completions will remain in your history.`)) return;
-    await change(async () => setHabits(await invoke<Habit[]>('habits_archive', { id: habit.id })));
-  }
-  async function moveHabit(habit: Habit, direction: number) {
-    await change(async () => setHabits(await invoke<Habit[]>('habits_move', { id: habit.id, direction })));
-  }
-  async function toggle(habit: Habit, date: string) {
-    await change(async () => {
-      const checked = await invoke<boolean>('completions_toggle', { id: habit.id, date });
-      setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
-    });
+    try { await action(); setStatus('saved'); return true; }
+    catch (reason) { setStatus('save-error'); setError(String(reason)); return false; }
   }
 
-  const dates = useMemo(() => Array.from({ length: daysInMonth(year, month) }, (_, index) => dateKey(year, month, index + 1)), [year, month]);
-  const todayKey = localToday();
-  const visible = habits.filter(habit => dates.some(date => isEligible(habit, date)));
-  const active = habits.filter(habit => habit.archivedAt === null);
-  const completed = dates.reduce((sum, date) => sum + (date <= todayKey ? visible.filter(habit => isEligible(habit, date) && completions.has(`${habit.id}:${date}`)).length : 0), 0);
-  const eligibleElapsed = dates.reduce((sum, date) => sum + (date <= todayKey ? visible.filter(habit => isEligible(habit, date)).length : 0), 0);
-  const tone: StatusTone = !native ? 'idle' : status === 'saving' || status === 'loading' ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
-  const statusText = !native ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY';
-  const rate = eligibleElapsed ? Math.round(completed / eligibleElapsed * 100) : 0;
+  // Navigation never waits on saving: changing month while a save runs is safe (the save completes either way).
+  const go = useCallback((next: YearMonth) => setAt(current => current.year === next.year && current.month === next.month ? current : next), []);
+  const goToday = useCallback(() => { const { year, month } = parseDateKey(today); go({ year, month }); }, [go, today]);
 
-  const focusNewHabit = () => { setActivePanel('habits'); requestAnimationFrame(() => document.getElementById('new-habit')?.focus()); };
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!(isMac ? event.metaKey : event.ctrlKey) || event.altKey || target?.closest('input, textarea, select, dialog')) return;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        const step = event.key === 'ArrowLeft' ? -1 : 1;
+        setAt(current => event.shiftKey ? withYear(current, current.year + step) : shiftMonth(current, step));
+      } else if (event.key.toLowerCase() === 't' && !event.shiftKey) {
+        event.preventDefault(); goToday();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [goToday]);
+
+  const dates = useMemo(() => monthDates(at), [at]);
+  const columns = useMemo(() => visibleHabits(habits, dates), [habits, dates]);
+  const isDone = useCallback((id: string, date: string) => completions.has(`${id}:${date}`), [completions]);
+  const stats = useMemo(() => monthStats(columns, dates, isDone, today), [columns, dates, isDone, today]);
+  const monthName = MONTH_NAMES[at.month - 1]!;
+  const caption = `${monthName} ${at.year} habit completions`;
+  const onThisMonth = today.startsWith(`${String(at.year).padStart(4, '0')}-${String(at.month).padStart(2, '0')}`);
+
+  function openLeft(mode: LeftMode) {
+    if (leftOpen && leftMode === mode && !narrow) { setLeftOpen(false); return; }
+    setLeftMode(mode); setLeftOpen(true);
+  }
+  function startNewHabit() {
+    setLeftMode('habits'); setLeftOpen(true);
+    requestAnimationFrame(() => addRef.current?.focus());
+  }
+  const toggle = (habit: Habit, date: string) => change(async () => {
+    const checked = await native.toggleCompletion(habit.id, date);
+    setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
+  });
+
+  const tone: StatusTone = !isNative ? 'idle' : busy ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
+  const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'LOADING LOCAL DATA' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'LOCAL DATA / SAVED' : 'LOCAL DATA / READY';
+
   const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />}>
-    <IconButton icon="calendar" label="Calendar archive" aria-pressed={activePanel === 'archive'} onClick={() => setActivePanel('archive')} />
-    <IconButton icon="settings" label="Manage habits" aria-pressed={activePanel === 'habits'} onClick={() => setActivePanel('habits')} />
-    <IconButton icon="plus" label="Add habit" onClick={focusNewHabit} />
+    <IconButton icon="calendar" label="Calendar archive" aria-pressed={leftOpen && leftMode === 'archive'} aria-controls="left-panel" onClick={() => openLeft('archive')} />
+    <button type="button" className="icon-button" aria-label="Manage habits" title="Manage habits" aria-pressed={leftOpen && leftMode === 'habits'} aria-controls="left-panel" onClick={() => openLeft('habits')}>
+      <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
+    </button>
+    <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
   </Rail>;
 
-  return <AppShell rail={rail}>
-      <IdentityStrip wordmark="EMBER" powerOn end={<span className="identity-side">HABIT SYSTEM <b>/</b> {year}</span>} />
-      <section className="toolbar" aria-label="Calendar controls">
-        <div className="month-controls">
-          <button onClick={() => shiftMonth(-1)} disabled={busy} aria-label="Previous month">←</button>
-          <strong>{monthNames[month - 1]} <span>{year}</span></strong>
-          <button onClick={() => shiftMonth(1)} disabled={busy} aria-label="Next month">→</button>
-          <button className="today-button" onClick={today} disabled={busy}>Today</button>
+  return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
+    <IdentityStrip wordmark="EMBER" powerOn end={<span className="identity-side">HABIT SYSTEM <b>/</b> {at.year}</span>} />
+    <section className="toolbar" aria-label="Calendar controls">
+      <div className="month-controls">
+        <button type="button" onClick={() => go(shiftMonth(at, -1))} disabled={!canShift(at, -1)} aria-label={`Previous month, ${MONTH_NAMES[shiftMonth(at, -1).month - 1]} ${shiftMonth(at, -1).year}`} title={`Previous month (${mod}+←)`} aria-keyshortcuts={`${ariaMod}+ArrowLeft`}>←</button>
+        <h1 className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
+        <button type="button" onClick={() => go(shiftMonth(at, 1))} disabled={!canShift(at, 1)} aria-label={`Next month, ${MONTH_NAMES[shiftMonth(at, 1).month - 1]} ${shiftMonth(at, 1).year}`} title={`Next month (${mod}+→)`} aria-keyshortcuts={`${ariaMod}+ArrowRight`}>→</button>
+        <div className="toolbar-year" role="group" aria-label="Year">
+          <button type="button" onClick={() => go(withYear(at, at.year - 1))} aria-label={`Previous year, ${monthName} ${at.year - 1}`} title={`Previous year (${mod}+Shift+←)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowLeft`}>«</button>
+          <button type="button" onClick={() => go(withYear(at, at.year + 1))} aria-label={`Next year, ${monthName} ${at.year + 1}`} title={`Next year (${mod}+Shift+→)`} aria-keyshortcuts={`${ariaMod}+Shift+ArrowRight`}>»</button>
         </div>
-        <span className="toolbar-hint">ONE DAY AT A TIME</span>
-      </section>
-
-      <div className="content">
-        <aside className="left-panel suite-frame">
-          {activePanel === 'archive' ? <>
-            <p className="panel-kicker">ARCHIVE / {year}</p>
-            <div className="year-controls"><button onClick={() => setYear(year - 1)} disabled={busy} aria-label="Previous year">−</button><strong>{year}</strong><button onClick={() => setYear(year + 1)} disabled={busy} aria-label="Next year">+</button></div>
-            <div className="month-list">{monthNames.map((name, index) => <button key={name} className={month === index + 1 ? 'month-link current' : 'month-link'} onClick={() => setMonth(index + 1)} disabled={busy}><span>{String(index + 1).padStart(2, '0')}</span>{name}<span aria-hidden="true">↗</span></button>)}</div>
-          </> : <>
-            <p className="panel-kicker">DAILY PRACTICE</p>
-            <form className="add-form" onSubmit={addHabit}><label htmlFor="new-habit">New habit</label><input id="new-habit" className="suite-input" maxLength={60} value={newName} onChange={event => setNewName(event.target.value)} placeholder="Name a habit" disabled={busy || !native} /><button className="suite-button primary" disabled={busy || !native || !newName.trim()}>Add habit</button></form>
-            <div className="habit-list">{active.map((habit, index) => <div className="habit-item" key={habit.id}><strong>{habit.name}</strong><div><button onClick={() => moveHabit(habit, -1)} disabled={busy || index === 0} aria-label={`Move ${habit.name} left`}>←</button><button onClick={() => moveHabit(habit, 1)} disabled={busy || index === active.length - 1} aria-label={`Move ${habit.name} right`}>→</button><button onClick={() => renameHabit(habit)} disabled={busy} aria-label={`Rename ${habit.name}`}>✎</button><button onClick={() => archiveHabit(habit)} disabled={busy} aria-label={`Archive ${habit.name}`}>⌑</button></div></div>)}</div>
-            {active.length === 0 && <p className="quiet">Add your first habit to begin.</p>}
-          </>}
-        </aside>
-
-        <main className="grid-area suite-frame">
-          <div className="grid-title"><div><span className="small-dot" /> DAILY HABITS</div><span>{dates.length} DAYS / {visible.length} HABITS</span></div>
-          {!native ? <div className="empty-state">Open Ember as a desktop app to use local storage.</div> : visible.length === 0 ? <div className="empty-state"><strong>A small beginning.</strong><p>Add a habit to fill this month with daily practice.</p><button className="suite-button primary" onClick={focusNewHabit}>Create a habit</button></div> :
-            <div className="grid-scroll" tabIndex={0} aria-label="Habit calendar, scroll to see all dates and habits"><table><caption className="sr-only">{monthNames[month - 1]} {year} habit completions</caption><thead><tr><th scope="col" className="date-heading">DAY</th>{visible.map(habit => <th scope="col" key={habit.id}>{habit.name}</th>)}</tr></thead><tbody>{dates.map(date => { const day = Number(date.slice(-2)); const weekday = new Date(year, month - 1, day).toLocaleDateString('en', { weekday: 'short' }).toUpperCase(); return <tr key={date} className={date === todayKey ? 'current-day' : ''}><th scope="row"><b>{String(day).padStart(2, '0')}</b><small>{weekday}</small></th>{visible.map(habit => { const checked = completions.has(`${habit.id}:${date}`); const eligible = isEligible(habit, date); return <td key={habit.id}><button className={checked ? 'check checked' : 'check'} aria-label={`${habit.name}, ${date}`} aria-pressed={checked} onClick={() => toggle(habit, date)} disabled={busy || !eligible || date > todayKey} title={!eligible ? 'Not active on this date' : date > todayKey ? 'Future date' : `${habit.name} · ${date}`}>{checked ? '✓' : ''}</button></td>; })}</tr>; })}</tbody></table></div>}
-        </main>
-
-        <aside className="right-panel suite-frame"><p className="panel-kicker">MONTHLY / {monthNames[month - 1]!.toUpperCase()}</p><div className="stat"><span>COMPLETIONS</span><strong>{completed}</strong></div><div className="stat"><span>ELIGIBLE DAYS</span><strong>{eligibleElapsed}</strong></div><div className="rate"><div><span>PROGRESS</span><strong>{rate}%</strong></div><div className="progress-track"><span style={{ width: `${rate}%` }} /></div><small>Based on active habit-days through today.</small></div><div className="right-note">Small things,<br />done often<span>.</span></div></aside>
+        <button type="button" className={onThisMonth ? 'today-button on-today' : 'today-button'} onClick={goToday} title={`Today (${mod}+T)`} aria-keyshortcuts={`${ariaMod}+T`}>Today</button>
       </div>
-      <StatusBar tone={tone} status={statusText}><span>{monthNames[month - 1]!.toUpperCase()} · {dates.length} DAYS</span></StatusBar>
-      {error && <div className="error-banner" role="alert">{error} <button onClick={() => { setError(''); setStatus('loading'); void loadHabits().then(() => loadMonth(year, month)).then(() => setStatus('ready')).catch(reason => { setStatus('load-error'); setError(String(reason)); }); }}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
+      <span className="toolbar-hint">ONE DAY AT A TIME</span>
+    </section>
+
+    <div className="content" data-left={leftOpen ? 'open' : 'closed'} data-right={rightOpen ? 'open' : 'closed'}>
+      <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : 'HABITS'}>
+        {leftMode === 'archive'
+          ? <ArchiveList at={at} today={today} busy={false} onSelect={month => { go({ year: at.year, month }); if (narrow) setLeftOpen(false); }} onYear={year => go(withYear(at, year))} />
+          : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
+              onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
+              onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}
+              onMove={(habit, direction) => void change(async () => setHabits(await native.moveHabit(habit.id, direction)))}
+              onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))} />}
+      </SidePanel>
+
+      <main className="grid-area suite-frame" aria-labelledby="grid-title">
+        <div className="grid-title"><h2 id="grid-title"><span className="small-dot" aria-hidden="true" /> DAILY HABITS</h2><span>{dates.length} DAYS / {columns.length} HABITS</span></div>
+        {!isNative ? <div className="empty-state">Open Ember as a desktop app to use local storage.</div>
+          : columns.length === 0 ? <div className="empty-state">
+              <strong>{habits.length === 0 ? 'A small beginning.' : 'Nothing tracked this month.'}</strong>
+              <p>{habits.length === 0 ? 'Add a habit to fill this month with daily practice.' : 'No habit was active in this month. Your history is in the months around it.'}</p>
+              {habits.length === 0 && <button type="button" className="suite-button primary" onClick={startNewHabit}>Create a habit</button>}
+            </div>
+          : <HabitGrid caption={caption} dates={dates} habits={columns} today={today} busy={busy} isDone={isDone} onToggle={toggle} />}
+      </main>
+
+      <SidePanel id="right-panel" side="right" title={`Monthly / ${monthName}`} open={rightOpen} onOpenChange={setRightOpen} strip={`${stats.rate}%`}>
+        <Summary stats={stats} monthName={monthName} />
+      </SidePanel>
+    </div>
+
+    <StatusBar tone={tone} status={statusText}><span>{monthName.toUpperCase()} · {dates.length} DAYS</span></StatusBar>
+    {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={reload}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
   </AppShell>;
 }

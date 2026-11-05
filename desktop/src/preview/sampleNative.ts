@@ -90,8 +90,10 @@ export function install() {
   const bar = document.createElement('div');
   bar.className = 'preview-bar';
   bar.setAttribute('role', 'note');
-  bar.innerHTML = '<strong>PREVIEW</strong><span>Synthetic sample habits in memory. Nothing is saved; reload to reset.</span><label><input type="checkbox"> Simulate save failure</label>';
+  bar.innerHTML = '<strong>PREVIEW</strong><span>Sample data in memory · nothing is saved · reload to reset</span><label><input type="checkbox"> Simulate save failure</label>';
   bar.querySelector('input')!.addEventListener('change', event => { preview.failWrites = (event.target as HTMLInputElement).checked; });
   document.body.prepend(bar);
   document.documentElement.classList.add('has-preview-bar');
+  // Hosted previews may set their own data-theme on <html>; the body carries Ember's theme as well.
+  document.body.dataset.theme = 'ember';
 }

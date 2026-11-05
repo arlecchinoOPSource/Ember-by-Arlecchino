@@ -7,12 +7,14 @@
   "scripts": {
     "dev:web": "vite",
     "build:web": "tsc --noEmit && vite build",
-    "check": "npm run test:suite && npm run build:web && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "check": "npm run test:suite && npm run test:unit && npm run build:web && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --locked",
     "tauri": "tauri",
     "test:native": "node e2e/native-lifecycle.mjs",
     "test:suite": "npm --prefix ../packages/suite-ui test",
     "build:preview": "tsc --noEmit && vite build --mode preview --outDir dist-preview --base ./",
-    "dev:preview": "vite --mode preview"
+    "dev:preview": "vite --mode preview",
+    "test:unit": "node --test tests/*.test.mjs",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "@arlecchino/suite-ui": "file:../packages/suite-ui",
@@ -23,6 +25,7 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tauri-apps/cli": "2.12.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
