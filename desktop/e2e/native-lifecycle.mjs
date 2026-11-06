@@ -49,12 +49,13 @@ const databaseFile = () => {
 const bannerText = session => script(session, 'return document.querySelector("[role=alert]")?.textContent ?? ""');
 
 async function addHabit(session, name) {
-  await click(session, 'button[aria-label="Manage habits"]');
-  await script(session, `const input = document.getElementById('new-habit');
+  await click(session, 'button[aria-label="Add habit"]');
+  await waitFor(session, 'return !!document.getElementById("new-habit-name")', 'new habit popup');
+  await script(session, `const input = document.getElementById('new-habit-name');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, arguments[0]);
     input.dispatchEvent(new Event('input', { bubbles: true }));`, [name]);
-  await waitFor(session, 'return !document.querySelector(".add-form button").disabled', 'add button');
-  await click(session, '.add-form button');
+  await waitFor(session, 'return !document.querySelector(".new-habit-form button[type=submit]").disabled', 'add button');
+  await click(session, '.new-habit-form button[type=submit]');
   await waitFor(session, statusIs('SAVED'), `saved ${name}`);
 }
 
@@ -70,6 +71,7 @@ try {
   await click(session, cell);
   await waitFor(session, statusIs('SAVED'), 'toggle saved');
   assert(await script(session, `return document.querySelector(arguments[0]).getAttribute('aria-pressed') === 'true'`, [cell]), 'today is checked before restart');
+  await click(session, 'button[aria-label="Manage habits"]');
   await click(session, 'button[aria-label="Move Synthetic read right"]');
   await waitFor(session, statusIs('SAVED'), 'reorder saved');
   await call('DELETE', `/session/${session}`);

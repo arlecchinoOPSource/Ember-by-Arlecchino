@@ -168,6 +168,11 @@ pub fn list(db: &Connection) -> Result<Vec<Habit>, String> {
 pub fn create(db: &Connection, name: &str, start_date: &str) -> Result<(), String> {
     let name = valid_name(name)?;
     valid_date(start_date)?;
+    if list(db)?.iter().any(|habit| {
+        habit.archived_at.is_none() && habit.name.to_lowercase() == name.to_lowercase()
+    }) {
+        return Err("An active habit already has this name. Choose a different name.".into());
+    }
     db.execute(
         "INSERT INTO habits (id, name, sort_order, start_date)
          VALUES (lower(hex(randomblob(16))), ?1, (SELECT coalesce(max(sort_order), -1) + 1 FROM habits), ?2)",
@@ -258,6 +263,62 @@ pub fn archive(db: &Connection, id: &str, archived_at: &str) -> Result<(), Strin
     Ok(())
 }
 
+#[derive(Serialize)]
+pub struct DeletePreview {
+    pub completions: usize,
+    pub token: String,
+}
+
+pub fn delete_preview(db: &Connection, id: &str) -> Result<DeletePreview, String> {
+    let id = valid_id(id)?;
+    let archived: Option<Option<String>> = db
+        .query_row(
+            "SELECT archived_at FROM habits WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(failed(READ))?;
+    if !archived.is_some_and(|value| value.is_some()) {
+        return Err("Only archived habits can be deleted.".into());
+    }
+    let mut stmt = db
+        .prepare("SELECT date FROM completions WHERE habit_id = ?1 ORDER BY date")
+        .map_err(failed(READ))?;
+    let dates: Vec<String> = stmt
+        .query_map([id], |row| row.get(0))
+        .map_err(failed(READ))?
+        .collect::<Result<_, _>>()
+        .map_err(failed(READ))?;
+    Ok(DeletePreview {
+        completions: dates.len(),
+        token: serde_json::to_string(&dates)
+            .map_err(|_| "Could not preview history.".to_string())?,
+    })
+}
+
+pub fn delete_archived(db: &mut Connection, id: &str, token: &str) -> Result<(), String> {
+    valid_id(id)?;
+    let tx = db.transaction().map_err(failed(SAVE))?;
+    let fresh = delete_preview(&tx, id)?;
+    if fresh.token != token {
+        return Err("Habit history changed. Review the deletion again.".into());
+    }
+    tx.execute("DELETE FROM completions WHERE habit_id = ?1", [id])
+        .map_err(failed(SAVE))?;
+    if tx
+        .execute(
+            "DELETE FROM habits WHERE id = ?1 AND archived_at IS NOT NULL",
+            [id],
+        )
+        .map_err(failed(SAVE))?
+        != 1
+    {
+        return Err("Archived habit not found.".into());
+    }
+    tx.commit().map_err(failed(SAVE))
+}
+
 pub fn practice_days(db: &Connection) -> Result<Vec<(String, i64)>, String> {
     let mut statement = db
         .prepare(
@@ -315,8 +376,17 @@ pub fn toggle(
         .optional()
         .map_err(failed(SAVE))?;
     let (start, archived) = eligibility.ok_or("Habit not found.")?;
-    if date < start.as_str() || archived.as_deref().is_some_and(|last| date > last) {
+    if (date < start.as_str() && archived.is_some())
+        || archived.as_deref().is_some_and(|last| date > last)
+    {
         return Err("This habit is not active on that date.".into());
+    }
+    if date < start.as_str() {
+        tx.execute(
+            "UPDATE habits SET start_date = ?1 WHERE id = ?2 AND archived_at IS NULL",
+            params![date, id],
+        )
+        .map_err(failed(SAVE))?;
     }
     let removed = tx
         .execute(
@@ -622,6 +692,70 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_active_name_is_rejected_without_writing_and_archived_name_can_be_reused() {
+        let db = memory();
+        create(&db, "Read", "2026-11-01").unwrap();
+        let original_id = list(&db).unwrap()[0].id.clone();
+        assert!(
+            create(&db, " read ", "2026-11-02")
+                .unwrap_err()
+                .contains("already has this name")
+        );
+        assert_eq!(list(&db).unwrap().len(), 1);
+        assert_eq!(list(&db).unwrap()[0].id, original_id);
+        archive(&db, &original_id, "2026-11-03").unwrap();
+        create(&db, "Read", "2026-11-04").unwrap();
+        assert_eq!(list(&db).unwrap().len(), 2);
+        assert_eq!(list(&db).unwrap()[0].id, original_id);
+    }
+
+    #[test]
+    fn archived_delete_requires_fresh_preview_and_preserves_other_history() {
+        let mut db = memory();
+        create(&db, "Old", "2026-11-01").unwrap();
+        create(&db, "Keep", "2026-11-01").unwrap();
+        let items = list(&db).unwrap();
+        let (old, keep) = (&items[0].id, &items[1].id);
+        toggle(&mut db, old, "2026-11-01", "2026-11-03").unwrap();
+        toggle(&mut db, keep, "2026-11-01", "2026-11-03").unwrap();
+        assert!(delete_preview(&db, old).is_err());
+        assert!(delete_archived(&mut db, old, "[]").is_err());
+        archive(&db, old, "2026-11-03").unwrap();
+        let preview = delete_preview(&db, old).unwrap();
+        assert_eq!(preview.completions, 1);
+        assert!(delete_archived(&mut db, old, "[]").is_err());
+        assert!(delete_archived(&mut db, "bad-id", &preview.token).is_err());
+        assert_eq!(month_rows(&db, 2026, 11).unwrap().len(), 2);
+        delete_archived(&mut db, old, &preview.token).unwrap();
+        assert_eq!(list(&db).unwrap().len(), 1);
+        assert_eq!(list(&db).unwrap()[0].id, *keep);
+        assert_eq!(month_rows(&db, 2026, 11).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn archived_delete_survives_reopen_and_is_absent_from_backup() {
+        let dir = TempDir::new("deleted-reopen");
+        let path = dir.db();
+        let old = {
+            let mut db = open_database(&path).unwrap();
+            create(&db, "Old", "2026-11-01").unwrap();
+            let id = list(&db).unwrap()[0].id.clone();
+            toggle(&mut db, &id, "2026-11-01", "2026-11-03").unwrap();
+            archive(&db, &id, "2026-11-03").unwrap();
+            let preview = delete_preview(&db, &id).unwrap();
+            delete_archived(&mut db, &id, &preview.token).unwrap();
+            id
+        };
+        let mut db = open_database(&path).unwrap();
+        assert!(list(&db).unwrap().is_empty());
+        assert!(month_rows(&db, 2026, 11).unwrap().is_empty());
+        let backup = crate::backup::export(&mut db, &dir.0, "backup").unwrap();
+        let raw = std::fs::read_to_string(backup).unwrap();
+        assert!(!raw.contains(&old));
+        assert!(!raw.contains("Old"));
+    }
+
+    #[test]
     fn archive_ends_eligibility_after_its_date_and_keeps_rows() {
         let mut db = memory();
         create(&db, "Read", "2026-11-01").unwrap();
@@ -651,9 +785,25 @@ mod tests {
         let mut db = memory();
         create(&db, "Read", "2026-11-10").unwrap();
         let id = ids(&db).remove(0);
-        assert!(toggle(&mut db, &id, "2026-11-09", "2026-11-20").is_err());
+        assert!(toggle(&mut db, &id, "2026-11-09", "2026-11-20").unwrap());
+        assert_eq!(list(&db).unwrap()[0].start_date, "2026-11-09");
         assert!(toggle(&mut db, &id, "2026-11-10", "2026-11-20").unwrap());
         assert!(create(&db, "Bad", "2026-13-01").is_err());
+    }
+
+    #[test]
+    fn past_completion_backdates_active_habit_atomically() {
+        let mut db = memory();
+        create(&db, "Read", "2026-11-05").unwrap();
+        let id = ids(&db).remove(0);
+        assert!(toggle(&mut db, &id, "2026-11-02", "2026-11-05").unwrap());
+        assert_eq!(list(&db).unwrap()[0].start_date, "2026-11-02");
+        assert_eq!(
+            month_rows(&db, 2026, 11).unwrap(),
+            vec![(id.clone(), "2026-11-02".into())]
+        );
+        archive(&db, &id, "2026-11-05").unwrap();
+        assert!(toggle(&mut db, &id, "2026-11-01", "2026-11-05").is_err());
     }
 
     #[test]
@@ -699,7 +849,6 @@ mod tests {
         for date in [
             "2026-02-30",
             "2026-11-06",
-            "2026-10-31",
             "2026-11-5",
             "2026-11-05T00:00",
             " 2026-11-05",

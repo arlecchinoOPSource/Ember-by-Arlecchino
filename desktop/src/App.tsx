@@ -1,10 +1,17 @@
 import { DataCopies } from './DataCopies';
 import { SnapshotImport } from './SnapshotImport';
-import { Settings } from './Settings';
-import { applyPreferences, playCompletion, readPreferences, storePreferences } from './preferences';
-import { isTauri } from '@tauri-apps/api/core';
+import { Settings, ThemePicker } from './Settings';
+import { SoundPanel } from './SoundPanel';
+import { NewHabitPanel } from './NewHabitPanel';
+import { applyPreferences, readPreferences, storePreferences } from './preferences';
+import { sounds } from './sounds';
+import { cueGain } from './soundManager';
+import { syncNativeSound } from './nativeSound';
+import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Rail, StatusBar, SvgIcon, type StatusTone } from '@arlecchino/suite-ui';
+import { AppShell, BrandMark, Icon, IconButton, IdentityStrip, Popover, Rail, StartupScreen, StatusBar, SvgIcon, type Readiness, type StatusTone } from '@arlecchino/suite-ui';
 import { MONTH_NAMES, canShift, monthDates, monthStats, practiceStreaks, parseDateKey, shiftMonth, visibleHabits, withYear, type Habit, type YearMonth } from './calendar';
 import { HabitGrid } from './HabitGrid';
 import { NARROW_QUERY, useMediaQuery, usePanel, useToday } from './hooks';
@@ -12,7 +19,7 @@ import { native } from './native';
 import { ArchiveList, HabitManager, SidePanel, Summary } from './Panels';
 
 type Status = 'loading' | 'ready' | 'saving' | 'saved' | 'load-error' | 'save-error';
-type LeftMode = 'archive' | 'habits' | 'settings';
+type LeftMode = 'archive' | 'habits';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? '⌘' : 'Ctrl';
@@ -22,7 +29,37 @@ export function App() {
   const [preferences, setPreferences] = useState(readPreferences);
   const [preferencesStored, setPreferencesStored] = useState(true);
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
-  useEffect(() => { applyPreferences(preferences); }, [preferences, reduced]);
+  useEffect(() => { applyPreferences(preferences); sounds.configure(preferences); }, [preferences, reduced]);
+  useEffect(() => {
+    // Cues sound on press (pointerdown), not on release, so they are heard the moment a control
+    // is touched; keyboard activation (a click with no pointer) sounds on its click.
+    const cueFor = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return null;
+      const control = target.closest('button, select, input[type="checkbox"], input[type="radio"], label');
+      if (!control || control.closest('[data-cue="none"]') || control.matches(':disabled, [aria-disabled="true"]')) return null;
+      if (control.matches('.check')) return control.matches('[aria-pressed="false"]') ? 'completion' : null;
+      return 'interface';
+    };
+    function onPointerDown(event: PointerEvent) {
+      if (event.button !== 0) return;
+      lastPress = performance.now();
+      const cue = cueFor(event.target);
+      // A cell press plays Completion at once; a failed save then plays Error.
+      if (cue) sounds.play(cue);
+    }
+    let lastPress = -Infinity;
+    function onClick(event: MouseEvent) {
+      // A label forwards its press to the input as a click with no pointer; that is not a second press.
+      if (event.detail !== 0 || performance.now() - lastPress < 500) return;
+      const cue = cueFor(event.target);
+      if (cue) sounds.play(cue);
+    }
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('click', onClick, true);
+    // Decode the short cues now so the very first press is not late.
+    sounds.prime();
+    return () => { document.removeEventListener('pointerdown', onPointerDown, true); document.removeEventListener('click', onClick, true); };
+  }, []);
   const today = useToday();
   const [at, setAt] = useState<YearMonth>(() => { const { year, month } = parseDateKey(today); return { year, month }; });
   const [opened, setOpened] = useState(false);
@@ -35,9 +72,49 @@ export function App() {
   const narrow = useMediaQuery(NARROW_QUERY);
   const [leftOpen, setLeftOpen] = usePanel('left', narrow);
   const [rightOpen, setRightOpen] = usePanel('right', narrow);
-  const addRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const themesRef = useRef<HTMLButtonElement>(null);
+  const soundRef = useRef<HTMLButtonElement>(null);
+  const settingsRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLElement>(null);
+  const [panel, setPanel] = useState<'themes' | 'sounds' | 'settings' | 'new-habit' | null>(null);
   const isNative = isTauri();
+  // A launch decision, so changing Settings does not replay the screen mid-session.
+  const [startupVisible, setStartupVisible] = useState(() => isNative && preferences.startupScreen);
+  const dismissStartup = useCallback(() => setStartupVisible(false), []);
   const busy = status === 'loading' || status === 'saving';
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
+  useEffect(() => {
+    if (!isNative || import.meta.env.MODE === 'preview') return;
+    let disposed = false;
+    let closing = false;
+    let unlisten: (() => void) | undefined;
+    let unlistenExit: (() => void) | undefined;
+    // As in Terminal: nothing closes during a save; then the close sound starts, the window
+    // hides at once, and the app exits when the sound ends (capped natively at 6.5 s).
+    async function finish() {
+      if (closing || statusRef.current === 'saving') return;
+      closing = true;
+      const settings = preferencesRef.current;
+      if (isMac) {
+        // macOS plays the close sound natively so it starts immediately even before any click.
+        const gain = cueGain(settings, 'close');
+        void invoke('finish_exit', { nativeCueVolume: gain > 0 ? Math.round(gain * 100) : null, lingerMs: null });
+        return;
+      }
+      const lingerMs = await sounds.playClose();
+      if (!disposed) void invoke('finish_exit', { nativeCueVolume: null, lingerMs });
+    }
+    void getCurrentWindow().onCloseRequested(event => {
+      event.preventDefault();
+      finish();
+    }).then(stop => { if (disposed) stop(); else unlisten = stop; }).catch(() => { /* Native close handling is unavailable. */ });
+    void listen('ember:exit-requested', finish).then(stop => { if (disposed) stop(); else unlistenExit = stop; });
+    return () => { disposed = true; unlisten?.(); unlistenExit?.(); };
+  }, [isNative]);
 
   const load = useCallback(async (target: YearMonth) => {
     const [items, rows, practice] = await Promise.all([native.listHabits(), native.monthCompletions(target.year, target.month), native.practiceDays()]);
@@ -50,7 +127,7 @@ export function App() {
     let live = true;
     setStatus('loading');
     load(at).then(({ items, practice, done }) => { if (live) { setOpened(true); setDays(new Map(practice)); setHabits(items); setCompletions(done); setStatus('ready'); setError(''); } })
-      .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); } });
+      .catch(reason => { if (live) { setStatus('load-error'); setError(String(reason)); sounds.play('error'); } });
     return () => { live = false; };
   }, [at, isNative, load, revision]);
 
@@ -59,7 +136,7 @@ export function App() {
     if (busy || !isNative) return false;
     setStatus('saving'); setError('');
     try { await action(); setStatus('saved'); return true; }
-    catch (reason) { setStatus('save-error'); setError(String(reason)); return false; }
+    catch (reason) { setStatus('save-error'); setError(String(reason)); sounds.play('error'); return false; }
   }
 
   // Navigation never waits on saving: changing month while a save runs is safe (the save completes either way).
@@ -96,8 +173,7 @@ export function App() {
     setLeftMode(mode); setLeftOpen(true);
   }
   function startNewHabit() {
-    setLeftMode('habits'); setLeftOpen(true);
-    requestAnimationFrame(() => addRef.current?.focus());
+    setError(''); setPanel('new-habit');
   }
   const toggle = (habit: Habit, date: string) => change(async () => {
     const checked = await native.toggleCompletion(habit.id, date);
@@ -108,30 +184,68 @@ export function App() {
       else next.delete(date);
       return next;
     });
-    if (checked && preferences.sound) playCompletion();
     setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
+    if (date < habit.startDate) reload();
   });
 
   const tone: StatusTone = !isNative ? 'idle' : busy ? 'busy' : status === 'saved' ? 'ok' : status === 'load-error' || status === 'save-error' ? 'error' : 'idle';
   // Short and truthful, like Terminal's: SAVED only after SQLite committed.
   const statusText = !isNative ? 'DESKTOP STORAGE UNAVAILABLE' : status === 'loading' ? 'OPENING' : status === 'saving' ? 'SAVING' : status === 'save-error' ? 'NOT SAVED' : status === 'load-error' ? 'LOAD ERROR' : status === 'saved' ? 'SAVED' : 'READY';
+  const startupReadiness: Readiness = status === 'load-error' ? 'error' : opened ? 'ready' : 'starting';
 
-  // Settings sits at the bottom of the rail, as in Terminal.
-  const settingsButton = <IconButton icon="settings" label="Settings" className="rail-bottom" aria-pressed={leftOpen && leftMode === 'settings'} aria-controls="left-panel" onClick={() => openLeft('settings')} />;
+  function updatePreferences(next: typeof preferences) {
+    sounds.configure(next);
+    syncNativeSound(next);
+    setPreferences(next);
+    setPreferencesStored(storePreferences(next));
+  }
+  useEffect(() => {
+    if (panel !== 'settings') return;
+    settingsPanelRef.current?.focus();
+    function onEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+      event.preventDefault();
+      setPanel(null);
+      settingsRef.current?.focus();
+    }
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [panel]);
+  // Terminal keeps Themes in the rail and Settings at its bottom.
+  const settingsButton = <IconButton ref={settingsRef} icon="settings" label="Settings" className="rail-bottom" aria-expanded={panel === 'settings'} aria-controls="settings-panel" onClick={() => setPanel(current => current === 'settings' ? null : 'settings')} />;
   const rail = <Rail label="Ember navigation" brand={<BrandMark letter="e" appName="Ember" />} bottom={settingsButton}>
     <IconButton icon="calendar" label="Calendar archive" aria-pressed={leftOpen && leftMode === 'archive'} aria-controls="left-panel" onClick={() => openLeft('archive')} />
     <button type="button" className="icon-button" aria-label="Manage habits" title="Manage habits" aria-pressed={leftOpen && leftMode === 'habits'} aria-controls="left-panel" onClick={() => openLeft('habits')}>
       <SvgIcon><path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></SvgIcon>
     </button>
-    <IconButton icon="plus" label="Add habit" onClick={startNewHabit} />
+    <IconButton ref={themesRef} icon="themes" label="Themes" aria-expanded={panel === 'themes'} aria-controls="theme-panel" onClick={() => setPanel(current => current === 'themes' ? null : 'themes')} />
+    <IconButton ref={soundRef} icon="sounds" label="Sounds" aria-expanded={panel === 'sounds'} aria-controls="sounds-panel" onClick={() => setPanel(current => current === 'sounds' ? null : 'sounds')} />
+    <IconButton ref={addRef} icon="plus" label="Add habit" aria-expanded={panel === 'new-habit'} aria-controls="new-habit-panel" onClick={startNewHabit} />
   </Rail>;
 
   return <AppShell rail={rail} className={narrow ? 'is-narrow' : undefined}>
+    {panel === 'themes' && <Popover id="theme-panel" title="Themes" className="ember-theme-popover" scrim onClose={() => setPanel(null)} triggerRef={themesRef}><ThemePicker current={preferences.theme} onSelect={theme => updatePreferences({ ...preferences, theme })} /></Popover>}
+    {panel === 'sounds' && <Popover id="sounds-panel" title="Sounds" className="ember-sounds-popover" scrim onClose={() => setPanel(null)} triggerRef={soundRef}><SoundPanel value={preferences} update={updatePreferences} /></Popover>}
+    {panel === 'new-habit' && <Popover id="new-habit-panel" title="New habit" className="ember-new-habit-popover" scrim canClose={!busy} onClose={() => setPanel(null)} triggerRef={addRef}>
+      <NewHabitPanel habits={habits} busy={busy} native={isNative} error={status === 'save-error' ? error : ''} onCancel={() => { setPanel(null); addRef.current?.focus(); }} onCreate={async name => {
+        const saved = await change(async () => setHabits(await native.createHabit(name)));
+        if (saved) { setPanel(null); addRef.current?.focus(); }
+        return saved;
+      }} />
+    </Popover>}
+    {panel === 'settings' && <aside id="settings-panel" ref={settingsPanelRef} className="settings-dock suite-frame" aria-labelledby="settings-panel-title" tabIndex={-1}>
+      <header className="settings-dock-head"><h2 id="settings-panel-title">Settings</h2><button type="button" className="icon-button" aria-label="Close settings" onClick={() => { setPanel(null); settingsRef.current?.focus(); }}><Icon name="close" /></button></header>
+      <div className="settings-dock-body">
+        <Settings value={preferences} stored={preferencesStored} update={updatePreferences} openThemes={() => setPanel('themes')} />
+        {isNative && import.meta.env.MODE !== 'preview' && <div className="settings-data"><h3 className="settings-section">DATA</h3><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></div>}
+        <p className="settings-about">Ember keeps habits and settings on this device. Check the save status before closing.</p>
+      </div>
+    </aside>}
     <IdentityStrip wordmark="EMBER" powerOn={opened} />
     <section className="toolbar" aria-label="Calendar controls">
       <div className="tool-group">
         <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, -1))} disabled={!canShift(at, -1)} aria-label={`Previous month, ${MONTH_NAMES[shiftMonth(at, -1).month - 1]} ${shiftMonth(at, -1).year}`} title={`Previous month (${mod}+←)`} aria-keyshortcuts={`${ariaMod}+ArrowLeft`}><Icon name="chevron-left" /></button>
-        <h1 className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
+        <h1 key={`${at.year}-${at.month}`} className="month-title" aria-live="polite">{monthName} <span>{at.year}</span></h1>
         <button type="button" className="tool-button" onClick={() => go(shiftMonth(at, 1))} disabled={!canShift(at, 1)} aria-label={`Next month, ${MONTH_NAMES[shiftMonth(at, 1).month - 1]} ${shiftMonth(at, 1).year}`} title={`Next month (${mod}+→)`} aria-keyshortcuts={`${ariaMod}+ArrowRight`}><Icon name="chevron-right" /></button>
       </div>
       <div className="tool-group" role="group" aria-label="Year">
@@ -144,18 +258,14 @@ export function App() {
     </section>
 
     <div className="content" data-left={leftOpen ? 'open' : 'closed'} data-right={rightOpen ? 'open' : 'closed'}>
-      <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : leftMode === 'settings' ? 'Settings' : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : leftMode === 'settings' ? 'SETTINGS' : 'HABITS'}>
+      <SidePanel id="left-panel" side="left" title={leftMode === 'archive' ? `Archive / ${at.year}` : 'Daily practice'} open={leftOpen} onOpenChange={setLeftOpen} strip={leftMode === 'archive' ? 'ARCHIVE' : 'HABITS'}>
         {leftMode === 'archive'
           ? <ArchiveList at={at} today={today} busy={false} onSelect={month => { go({ year: at.year, month }); if (narrow) setLeftOpen(false); }} onYear={year => go(withYear(at, year))} />
-          : leftMode === 'settings' ? <><Settings value={preferences} stored={preferencesStored} update={next => {
-              setPreferences(next);
-              setPreferencesStored(storePreferences(next));
-            }} />{isNative && import.meta.env.MODE !== 'preview' && <><DataCopies onRestored={reload} /><SnapshotImport onImported={reload} /></>}</>
-          : <HabitManager habits={habits} busy={busy} native={isNative} addRef={addRef}
-              onCreate={name => change(async () => setHabits(await native.createHabit(name)))}
+          : <HabitManager habits={habits} busy={busy}
               onRename={(habit, name) => change(async () => setHabits(await native.renameHabit(habit.id, name)))}
               onMove={(habit, direction) => void change(async () => setHabits(await native.moveHabit(habit.id, direction)))}
-              onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))} />}
+              onArchive={habit => void change(async () => setHabits(await native.archiveHabit(habit.id)))}
+              onDelete={(habit, token) => change(async () => { await native.deleteArchived(habit.id, token); reload(); })} />}
       </SidePanel>
 
       <main className="grid-area suite-frame" aria-labelledby="grid-title">
@@ -178,5 +288,6 @@ export function App() {
 
     <StatusBar tone={tone} status={statusText} />
     {error && <div className="error-banner" role="alert">{error} <button type="button" onClick={reload}>{status === 'save-error' ? 'Reload saved data' : 'Retry loading'}</button></div>}
+    {startupVisible && <StartupScreen readiness={startupReadiness} animated={preferences.motion === 'full' && !reduced} onDone={dismissStartup} appName="Ember" wordmark="EMBER" messages={{ opening: 'OPENING HABITS', slow: 'STILL OPENING HABITS', error: 'HABITS UNAVAILABLE' }} />}
   </AppShell>;
 }

@@ -10,12 +10,19 @@ import '@fontsource/ibm-plex-sans-condensed/latin-600-italic.css';
 import '@fontsource/ibm-plex-sans-condensed/latin-600.css';
 import { applyPreferences, readPreferences } from './preferences';
 import { App } from './App';
+import { sounds } from './sounds';
+import { startStartupSound, syncNativeSound } from './nativeSound';
 import './styles.css';
 
 // Before the first render, so Ember never appears in the wrong theme or motion level.
-applyPreferences(readPreferences());
+const launchPreferences = readPreferences();
+applyPreferences(launchPreferences);
+// The startup sound starts before the first render, as in Terminal; nothing waits for it.
+sounds.configure(launchPreferences);
+syncNativeSound(launchPreferences);
 
 // Browser preview build only: synthetic in-memory data instead of native storage.
 if (import.meta.env.MODE === 'preview') (await import('./preview/sampleNative')).install();
+void startStartupSound(launchPreferences, () => sounds.playStartup(), () => sounds.startupHandledNatively());
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

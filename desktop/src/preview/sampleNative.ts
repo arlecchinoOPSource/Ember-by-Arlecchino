@@ -21,7 +21,7 @@ let nextId = 1;
 const newId = () => (nextId++).toString(16).padStart(32, '0');
 const habits: Habit[] = [];
 const completions = new Set<string>();
-export const preview = { failWrites: false };
+export const preview = { failWrites: false, failLoads: false };
 
 function seed() {
   const start = addDays(today(), -75);
@@ -62,9 +62,11 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       const prefix = `${args.year}-${pad(Number(args.month))}-`;
       return [...completions].map(k => k.split('|') as [string, string]).filter(([, d]) => d.startsWith(prefix)).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
     }
-    case 'habits_create': { const name = validName(args.name); write(); habits.push({ id: newId(), name, sortOrder: Math.max(-1, ...habits.map(h => h.sortOrder)) + 1, startDate: today(), archivedAt: null }); return sorted(); }
+    case 'habits_create': { const name = validName(args.name); if (habits.some(h => h.archivedAt === null && h.name.toLocaleLowerCase() === name.toLocaleLowerCase())) fail('An active habit already has this name. Choose a different name.'); write(); habits.push({ id: newId(), name, sortOrder: Math.max(-1, ...habits.map(h => h.sortOrder)) + 1, startDate: today(), archivedAt: null }); return sorted(); }
     case 'habits_rename': { const name = validName(args.name); const h = active(String(args.id)); write(); h.name = name; return sorted(); }
     case 'habits_archive': { const h = active(String(args.id)); write(); h.archivedAt = today() > h.startDate ? today() : h.startDate; return sorted(); }
+    case 'habits_delete_preview': { const h = habits.find(h => h.id === args.id && h.archivedAt !== null) ?? fail('Only archived habits can be deleted.'); const dates = [...completions].filter(k => k.startsWith(`${h.id}|`)).sort(); return { completions: dates.length, token: JSON.stringify(dates) }; }
+    case 'habits_delete_archived': { const h = habits.find(h => h.id === args.id && h.archivedAt !== null) ?? fail('Only archived habits can be deleted.'); const dates = [...completions].filter(k => k.startsWith(`${h.id}|`)).sort(); if (JSON.stringify(dates) !== args.token) fail('Habit history changed. Review the deletion again.'); write(); for (const date of dates) completions.delete(date); habits.splice(habits.indexOf(h), 1); return sorted(); }
     case 'habits_move': {
       const h = active(String(args.id)); const dir = Number(args.direction);
       if (dir !== 1 && dir !== -1) fail('Invalid move direction.');
@@ -79,8 +81,9 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
       if (!validDate(date)) fail('Use a valid calendar date.');
       if (date > today()) fail('Future dates cannot be completed.');
       const h = habits.find(o => o.id === args.id) ?? fail('Habit not found.');
-      if (date < h.startDate || (h.archivedAt !== null && date > h.archivedAt)) fail('This habit is not active on that date.');
+      if (h.archivedAt !== null && (date < h.startDate || date > h.archivedAt)) fail('This habit is not active on that date.');
       write();
+      if (date < h.startDate) h.startDate = date;
       const k = `${h.id}|${date}`;
       if (completions.delete(k)) return false;
       completions.add(k);
@@ -92,8 +95,19 @@ function handle(cmd: string, args: Record<string, unknown>): unknown {
 
 export function install() {
   seed();
+  // Preview-only launch scenarios for UI tests; no native database is touched.
+  const params = new URLSearchParams(location.search);
+  const readDelay = Math.min(6000, Math.max(120, Number(params.get('startupDelay')) || 120));
+  preview.failLoads = params.get('startupFail') === 'true';
+  (globalThis as { emberPreview?: typeof preview }).emberPreview = preview;
+  const reads = new Set(['practice_days', 'habits_list', 'completions_month']);
   // A short delay makes saving states visible, as a real disk write would.
-  mockIPC((cmd, args) => new Promise((resolve, reject) => setTimeout(() => { try { resolve(handle(cmd, (args ?? {}) as Record<string, unknown>)); } catch (error) { reject(error); } }, 120)));
+  mockIPC((cmd, args) => new Promise((resolve, reject) => setTimeout(() => {
+    try {
+      if (reads.has(cmd) && preview.failLoads) throw new Error('Preview: local habit history could not open.');
+      resolve(handle(cmd, (args ?? {}) as Record<string, unknown>));
+    } catch (error) { reject(error); }
+  }, reads.has(cmd) ? readDelay : 120)));
   (globalThis as { isTauri?: boolean }).isTauri = true;
   const bar = document.createElement('div');
   bar.className = 'preview-bar';

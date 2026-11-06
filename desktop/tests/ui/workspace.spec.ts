@@ -77,6 +77,18 @@ test('future and inactive days are announced, focusable, and cannot be toggled',
   await expect(statusBar(page)).toHaveText('READY');
 });
 
+test('an active habit can be checked on an earlier day', async ({ page }) => {
+  await open(page, '2026-11-06T10:00:00');
+  await page.getByRole('button', { name: 'Add habit' }).click();
+  await page.getByRole('textbox', { name: 'Habit name' }).fill('Backfill test');
+  await page.getByRole('button', { name: 'Save habit' }).click();
+  const cell = grid(page).getByRole('button', { name: /^Backfill test, Thursday, November 5, 2026/ });
+  await expect(cell).not.toHaveAttribute('aria-disabled', 'true');
+  await cell.click();
+  await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await expect(statusBar(page)).toHaveText('READY');
+});
+
 test('columns follow the saved order; archived habits stay in their historical months', async ({ page }) => {
   await open(page);
   // "Old routine" was archived on 1 December (today − 30 days): visible in December and November, gone in January.
@@ -176,24 +188,29 @@ test('reduced motion turns animation off; text scaling keeps the layout usable',
 test('preferences survive reopening and optional audio failure leaves the completion saved', async ({ page }) => {
   await open(page);
   const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
+  await page.getByRole('checkbox', { name: 'Completion sound' }).check();
+  await page.keyboard.press('Escape');
   await settings.click();
-  await expect(page.getByLabel('Completion sound')).not.toBeChecked();
-  await page.getByLabel('Completion sound').check();
-  await page.getByLabel('Theme', { exact: true }).selectOption('mint');
-  await page.getByLabel('Motion', { exact: true }).selectOption('off');
+  await page.getByRole('group', { name: /Motion/ }).getByRole('radio', { name: 'Off' }).check();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Themes' }).click();
+  await page.getByRole('button', { name: /Terminal Mint/ }).click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
-  await settings.click();
-  await expect(page.getByLabel('Completion sound')).toBeChecked();
-  await page.evaluate(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new Error('Audio unavailable')); });
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Completion sound' })).toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => { AudioBufferSourceNode.prototype.start = () => { throw new Error('Audio unavailable'); }; });
   const cell = grid(page).locator('button[data-date="2026-12-31"]').first();
   await cell.click();
   await expect(cell).toHaveAttribute('aria-pressed', 'true');
   await expect(statusBar(page)).toHaveText('SAVED');
 });
 
-test('Terminal parity: centred wordmark, no decorative text, Settings at the rail bottom', async ({ page }) => {
+test('Terminal parity: centred wordmark, rail order, and Settings docked at the left', async ({ page, browserName }) => {
   for (const size of [{ width: 1160, height: 780 }, { width: 680, height: 500 }]) {
     await page.setViewportSize(size);
     await open(page);
@@ -208,18 +225,50 @@ test('Terminal parity: centred wordmark, no decorative text, Settings at the rai
     const rail = (await page.locator('.rail').boundingBox())!;
     const box = (await settings.boundingBox())!;
     expect(rail.y + rail.height - (box.y + box.height)).toBeLessThan(16);
+    const themesBox = (await page.getByRole('button', { name: 'Themes' }).boundingBox())!;
+    const addBox = (await page.getByRole('button', { name: 'Add habit', exact: true }).boundingBox())!;
+    expect(themesBox.y + themesBox.height).toBeLessThan(addBox.y);
   }
   // Keyboard: Settings is reachable and shows a visible focus ring.
-  await page.getByRole('button', { name: 'Add habit' }).focus();
-  await page.keyboard.press('Tab');
+  await page.getByRole('button', { name: 'Add habit', exact: true }).focus();
+  // macOS WebKit uses Option-Tab to include buttons with default keyboard preferences.
+  await page.keyboard.press(browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
   const settings = page.getByRole('button', { name: 'Settings' });
   await expect(settings).toBeFocused();
   expect(await settings.evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('combobox', { name: 'Theme' })).toBeVisible();
+  const dock = page.getByRole('complementary', { name: 'Settings' });
+  await expect(dock).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Full' })).toBeVisible();
+  const panel = (await dock.boundingBox())!;
+  const workspace = (await page.locator('.workspace').boundingBox())!;
+  expect(Math.abs(panel.x - workspace.x)).toBeLessThan(2);
+  expect(panel.y).toBeGreaterThanOrEqual(workspace.y);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(680);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(500);
+  await page.getByRole('button', { name: 'Choose theme' }).click();
+  await expect(page.getByRole('dialog', { name: 'Themes' })).toBeVisible();
   // Everyday text uses the reading faces; Orbitron stays for the wordmark and short headings.
   const font = (selector: string) => page.locator(selector).first().evaluate(e => getComputedStyle(e).fontFamily);
   expect(await font('thead th')).toContain('IBM Plex Sans');
   expect(await font('.month-title')).toContain('IBM Plex Sans Condensed');
   expect(await font('.wordmark')).toContain('Orbitron');
+});
+
+test('minimum width at 150% keeps navigation reachable and wide habits scroll within the grid', async ({ page }) => {
+  await page.setViewportSize({ width: 680, height: 500 });
+  await open(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '150%'; });
+  for (const control of await page.locator('.rail button, .toolbar button, .panel-toggle').all()) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(681);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(501);
+  }
+  const last = page.locator('tbody tr').first().getByRole('button').last();
+  await last.focus();
+  await expect(last).toBeFocused();
+  await expect(last).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(680);
 });

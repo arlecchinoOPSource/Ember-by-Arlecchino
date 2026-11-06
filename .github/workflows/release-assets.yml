@@ -10,22 +10,35 @@ on:
         description: Release tag to attach packages to
         required: true
       run_id:
-        description: Release-candidate run whose artifacts were approved
-        required: true
+        description: Release-candidate run whose artifacts were approved (default - the successful run for the tag's commit)
+        required: false
 permissions:
   contents: write
   actions: read
 env:
-  # Ember 1.0.0 candidate approved by the owner on 5 November 2026.
-  APPROVED_RUN_ID: ${{ inputs.run_id || '41981196663' }}
   TAG: ${{ inputs.tag || github.event.release.tag_name }}
 jobs:
   attach:
     runs-on: ubuntu-latest
     steps:
+      # The owner reviews the candidate built from the exact commit being released; that
+      # run is found by commit so a release can never pick up another version's packages.
+      - name: Find the approved candidate run
+        id: run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIVEN: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "$GIVEN" ]; then echo "id=$GIVEN" >> "$GITHUB_OUTPUT"; exit 0; fi
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml --commit "$SHA" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$ID" ]; then echo "::error::No successful release-candidate run for $TAG ($SHA)"; exit 1; fi
+          echo "Using release-candidate run $ID for $TAG ($SHA)"
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
-          run-id: ${{ env.APPROVED_RUN_ID }}
+          run-id: ${{ steps.run.outputs.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: packages
           merge-multiple: true
@@ -33,6 +46,8 @@ jobs:
         working-directory: packages
         run: |
           ls -la
+          VERSION="${TAG#v}"
+          ls | grep -q "_${VERSION}_" || { echo "::error::Packages do not match $TAG"; exit 1; }
           sha256sum -c SHA256SUMS-macos.txt
           sed 's/\r$//' SHA256SUMS-windows.txt | sha256sum -c -
       - name: Upload to the release

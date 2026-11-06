@@ -36,9 +36,9 @@ test('month dates follow leap-year rules', () => {
 test('columns keep the saved order and archived habits stay in their historical months', () => {
   const habits = [habit('late', 2, '2026-11-20'), habit('retired', 0, '2026-09-01', '2026-10-15'), habit('daily', 1, '2026-09-01')];
   const ids = month => visibleHabits(habits, monthDates(month)).map(h => h.id);
-  assert.deepEqual(ids({ year: 2026, month: 10 }), ['retired', 'daily']);
+  assert.deepEqual(ids({ year: 2026, month: 10 }), ['retired', 'daily', 'late']);
   assert.deepEqual(ids({ year: 2026, month: 11 }), ['daily', 'late']);
-  assert.deepEqual(ids({ year: 2026, month: 8 }), []);
+  assert.deepEqual(ids({ year: 2026, month: 8 }), ['daily', 'late']);
   // The archive day itself is still active.
   assert.equal(isEligible(habits[1], '2026-10-15'), true);
   assert.equal(isEligible(habits[1], '2026-10-16'), false);
@@ -50,6 +50,7 @@ test('cell states: inactive before start and after archive, future after today',
   assert.equal(cellState(h, '2026-11-03', '2026-11-10'), 'open');
   assert.equal(cellState(h, '2026-11-11', '2026-11-10'), 'future');
   assert.equal(cellState(h, '2026-11-21', '2026-11-30'), 'inactive');
+  assert.equal(cellState(habit('active', 0, '2026-11-03'), '2026-11-02', '2026-11-10'), 'open');
 });
 
 test('monthly rate counts only eligible habit-days through today', () => {

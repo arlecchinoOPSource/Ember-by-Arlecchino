@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
+import { Icon } from '@arlecchino/suite-ui';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MAX_YEAR, MIN_YEAR, MONTH_NAMES, type Habit, type MonthStats, type YearMonth } from './calendar';
+import { native, type DeletePreview } from './native';
 
 /** A side panel that collapses to a slim strip; the strip keeps one button to bring it back. */
 export function SidePanel({ id, side, title, open, onOpenChange, strip, children }: { id: string; side: 'left' | 'right'; title: string; open: boolean; onOpenChange: (open: boolean) => void; strip?: ReactNode; children: ReactNode }) {
-  const arrow = (side === 'left') === open ? '‹' : '›';
+  const arrow = (side === 'left') === open ? 'chevron-left' : 'chevron-right';
   return <aside className={`side-panel ${side}-panel suite-frame`} data-open={open} aria-label={title}>
     <div className="side-panel-head">
       {open && <h2 className="panel-title" id={`${id}-title`}>{title}</h2>}
-      <button type="button" className="panel-toggle" aria-expanded={open} aria-controls={id} title={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} aria-label={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} onClick={() => onOpenChange(!open)}>{arrow}</button>
+      <button type="button" className="panel-toggle" aria-expanded={open} aria-controls={id} title={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} aria-label={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} onClick={() => onOpenChange(!open)}><Icon name={arrow} /></button>
     </div>
     <div id={id} className="side-panel-body" hidden={!open}>{children}</div>
     {!open && <button type="button" className="panel-strip" onClick={() => onOpenChange(true)} aria-hidden="true" tabIndex={-1}><span>{strip ?? title}</span></button>}
@@ -33,36 +35,37 @@ export function ArchiveList({ at, today, busy, onSelect, onYear }: { at: YearMon
   </>;
 }
 
-type HabitActions = { onCreate: (name: string) => Promise<boolean>; onRename: (habit: Habit, name: string) => Promise<boolean>; onMove: (habit: Habit, direction: -1 | 1) => void; onArchive: (habit: Habit) => void };
+type HabitActions = { onRename: (habit: Habit, name: string) => Promise<boolean>; onMove: (habit: Habit, direction: -1 | 1) => void; onArchive: (habit: Habit) => void; onDelete: (habit: Habit, token: string) => Promise<boolean> };
 
 /** Create, rename (inline), reorder and archive. Archived habits are listed with their last day. */
-export function HabitManager({ habits, busy, native, addRef, ...actions }: { habits: Habit[]; busy: boolean; native: boolean; addRef: RefObject<HTMLInputElement | null> } & HabitActions) {
-  const [name, setName] = useState('');
+export function HabitManager({ habits, busy, ...actions }: { habits: Habit[]; busy: boolean } & HabitActions) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [confirming, setConfirming] = useState<Habit | null>(null);
+  const [deleting, setDeleting] = useState<{habit: Habit; preview: DeletePreview} | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [previewing, setPreviewing] = useState(false);
   const active = habits.filter(h => h.archivedAt === null);
   const archived = habits.filter(h => h.archivedAt !== null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (confirming) dialog.current?.showModal(); else dialog.current?.close(); }, [confirming]);
+  useEffect(() => { if (deleting) deleteDialog.current?.showModal(); else deleteDialog.current?.close(); }, [deleting]);
 
-  async function add(event: FormEvent) {
-    event.preventDefault();
-    if (name.trim() && await actions.onCreate(name)) setName('');
-  }
   async function saveRename(habit: Habit) {
     const value = draft.trim();
     if (!value || value === habit.name) { setRenaming(null); return; }
     if (await actions.onRename(habit, value)) setRenaming(null);
   }
   const focusRow = (id: string) => requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-rename="${id}"]`)?.focus());
+  async function reviewDelete(habit: Habit) {
+    setPreviewing(true); setDeleteError('');
+    try { setDeleting({ habit, preview: await native.deletePreview(habit.id) }); }
+    catch (reason) { setDeleteError(String(reason)); }
+    finally { setPreviewing(false); }
+  }
 
   return <>
-    <form className="add-form" onSubmit={add}>
-      <label htmlFor="new-habit">New habit</label>
-      <input id="new-habit" ref={addRef} className="suite-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name a habit" disabled={!native} />
-      <button className="suite-button primary" disabled={busy || !native || !name.trim()}>Add habit</button>
-    </form>
     <ul className="habit-list" aria-label="Active habits, in column order">{active.map((habit, index) => <li className="habit-item" key={habit.id}>
       {renaming === habit.id
         ? <form className="rename-form" onSubmit={e => { e.preventDefault(); void saveRename(habit); }}>
@@ -81,8 +84,17 @@ export function HabitManager({ habits, busy, native, addRef, ...actions }: { hab
     {active.length === 0 && <p className="quiet">Add your first habit to begin.</p>}
     {archived.length > 0 && <details className="archived-list">
       <summary>Archived ({archived.length})</summary>
-      <ul>{archived.map(h => <li key={h.id}><span>{h.name}</span><small>last day {h.archivedAt}</small></li>)}</ul>
+      <ul>{archived.map(h => <li key={h.id}><span>{h.name}</span><small>last day {h.archivedAt}</small><button type="button" className="suite-button destructive" disabled={busy || previewing} onClick={() => void reviewDelete(h)} aria-label={`Permanently delete ${h.name}`}>Delete</button></li>)}</ul>
     </details>}
+    {deleteError && <p role="alert" className="settings-error">{deleteError}</p>}
+    <dialog ref={deleteDialog} className="delete-habit-dialog" aria-labelledby="delete-habit-title" onClose={() => setDeleting(null)}>
+      {deleting && <>
+      <h2 id="delete-habit-title">Permanently delete {deleting.habit.name}?</h2>
+      <p>This removes {deleting.preview.completions} completions and all history for this habit. This cannot be recovered without a prior backup.</p>
+      <p>To keep a copy, cancel and use Settings → Backup and export → Create backup first.</p>
+      <div className="dialog-actions"><button type="button" className="suite-button" autoFocus disabled={busy} onClick={() => setDeleting(null)}>Cancel</button><button type="button" className="suite-button destructive" disabled={busy} onClick={async () => { const {habit, preview} = deleting; if (await actions.onDelete(habit, preview.token)) setDeleting(null); else { setDeleting(null); setDeleteError('Deletion failed. Your history is unchanged. Review it and try again.'); } }}>Permanently delete</button></div>
+      </>}
+    </dialog>
     <dialog ref={dialog} aria-labelledby="archive-title" onClose={() => setConfirming(null)}>
       {confirming && <>
         <h2 id="archive-title">Archive {confirming.name}?</h2>
