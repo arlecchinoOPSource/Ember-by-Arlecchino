@@ -14,7 +14,12 @@ export default defineConfig({
   reporter: process.env.CI ? [['list']] : 'line',
   use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure', viewport: { width: 1160, height: 780 } },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1160, height: 780 }, ...(executablePath ? { launchOptions: { executablePath } } : {}) } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1160, height: 780 }, launchOptions: {
+      // The desktop shells do not gate audio behind a click; keep the browser preview's autoplay
+      // policy out of the startup/close sound assertions.
+      args: ['--autoplay-policy=no-user-gesture-required'],
+      ...(executablePath ? { executablePath } : {}),
+    } } },
     // WebKit is the engine of the macOS app; run it where Playwright's WebKit is installed.
     ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 } } }] : []),
   ],
