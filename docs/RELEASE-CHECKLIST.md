@@ -31,6 +31,17 @@ Local Apple Silicon candidate `2.0.0-rc.2` was built on 6 November 2026 from the
 - [ ] Windows NSIS/MSI build and installed-app checks for this candidate remain to be completed. The earlier 1.0 Windows results above do not verify this candidate.
 - [ ] Complete remaining 2.0 issue review, release notes, asset inventory, and owner approval before publishing. This local DMG is ad-hoc signed and unnotarized.
 
+## Ember 2.0.1 release
+
+- [x] Version 2.0.1 in `package.json`, `package-lock.json`, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`; SQLite schema remains v1 (no migration).
+- [x] Root cause fixed: `build.rs` now declares every command registered in `generate_handler!`, and the main window capability allows every one of them plus `core:event:allow-listen` / `allow-unlisten` for the close handler.
+- [x] Regression test `desktop/tests/acl.test.mjs` keeps `generate_handler!`, `build.rs` and the capability in step, including the close-event permissions.
+- [x] `npm run test:unit` (24), `npm run test:suite` (11), `npm run test:ui` (25), `cargo fmt --check`, `cargo clippy --all-targets -D warnings`, `cargo test` (22) and `npm run build:web` passed on 6 November 2026.
+- [x] Developer build launched on macOS: the native startup cue ran as `afplay -v 0.49 …/sounds/startup.wav`, and `sound.json` was written with the startup volume. The owner tested archived-habit deletion, the close sound and the startup sound and approved the release.
+- [x] Owner approved public release of 2.0.1 on 6 November 2026.
+- [ ] Packages built by `.github/workflows/release-candidate.yml` from the release commit; `release-assets.yml` finds that run by the tagged commit and refuses packages whose file names do not match the tag.
+- Items left open in 2.0.0 (installed-app upgrade check from a 1.0 profile, Windows installed-app checks, notarization and signing) remain open for this release, which ships with the same ad-hoc signing and unsigned Windows installers as 1.0 and 2.0.0.
+
 ## Ember 2.0.0 release
 
 - [x] Version 2.0.0 in `package.json`, `tauri.conf.json` and `Cargo.toml`; SQLite schema remains v1 (no migration).

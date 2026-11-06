@@ -10,8 +10,14 @@ fn main() {
             "habits_rename",
             "habits_move",
             "habits_archive",
+            "habits_delete_preview",
+            "habits_delete_archived",
             "completions_month",
             "completions_toggle",
+            "finish_exit",
+            "play_startup_sound",
+            "sound_preferences_set",
+            "startup_sound_native",
         ]),
     ))
     .expect("could not build Ember permissions");

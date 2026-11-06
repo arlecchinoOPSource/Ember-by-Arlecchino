@@ -1,3 +1,19 @@
+# Ember 2.0.1
+
+Ember 2.0.1 fixes the archived-habit deletion and native sound failures in 2.0.0. Habits, history and settings are unchanged: the SQLite schema is still v1, so there is no migration.
+
+## Fixed
+
+- **Deleting an archived habit works again.** 2.0.0 shipped the delete commands without matching permissions, so the confirmation step failed with `Command habits_delete_preview not allowed by ACL`. The permission manifest now declares every registered command, and the main window allows all of them.
+- **Startup and close sounds play again.** The same missing permissions blocked the native startup cue, the close event listener and the exit command. The window may now listen for the close event, and the startup, sound-preference and exit commands are allowed.
+- **The browser sound tests are deterministic.** Chromium's autoplay policy is pinned in the UI test harness, so the startup-sound assertion no longer depends on the machine's media settings.
+
+## Notes
+
+- On the first launch after updating, the startup preference is saved from the interface and the cue plays through the in-app path; from the next launch it starts natively before the interface loads.
+- The macOS build is universal (Apple Silicon and Intel). It is ad-hoc signed and not notarized, so on first launch right-click the app and choose **Open**. Windows installers (NSIS `.exe` and `.msi`, x64) are unsigned; if SmartScreen appears, choose **More info → Run anyway**.
+- The distribution identifier remains `com.arlecchino.ember`. Ember stores history in the user's local SQLite database, works offline, and bundles its fonts and audio. See the [release checklist](RELEASE-CHECKLIST.md) for platform coverage.
+
 # Ember 2.0.0
 
 Ember 2.0 brings the app's look, sound and feel in line with Terminal by Arlecchino. Your habits and history carry over unchanged: the SQLite schema is still v1, so there is no migration.
