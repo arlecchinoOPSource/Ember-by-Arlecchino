@@ -5,6 +5,8 @@ import { SoundPanel } from './SoundPanel';
 import { NewHabitPanel } from './NewHabitPanel';
 import { applyPreferences, readPreferences, storePreferences } from './preferences';
 import { sounds } from './sounds';
+import { cueGain } from './soundManager';
+import { syncNativeSound } from './nativeSound';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -29,13 +31,34 @@ export function App() {
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   useEffect(() => { applyPreferences(preferences); sounds.configure(preferences); }, [preferences, reduced]);
   useEffect(() => {
-    function onClick(event: MouseEvent) {
-      if (!(event.target instanceof Element)) return;
-      const control = event.target.closest('button, select, input[type="checkbox"], input[type="radio"]');
-      if (control && !control.matches('.check, [data-cue="none"]')) sounds.play('interface');
+    // Cues sound on press (pointerdown), not on release, so they are heard the moment a control
+    // is touched; keyboard activation (a click with no pointer) sounds on its click.
+    const cueFor = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return null;
+      const control = target.closest('button, select, input[type="checkbox"], input[type="radio"], label');
+      if (!control || control.closest('[data-cue="none"]') || control.matches(':disabled, [aria-disabled="true"]')) return null;
+      if (control.matches('.check')) return control.matches('[aria-pressed="false"]') ? 'completion' : null;
+      return 'interface';
+    };
+    function onPointerDown(event: PointerEvent) {
+      if (event.button !== 0) return;
+      lastPress = performance.now();
+      const cue = cueFor(event.target);
+      // A cell press plays Completion at once; a failed save then plays Error.
+      if (cue) sounds.play(cue);
     }
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    let lastPress = -Infinity;
+    function onClick(event: MouseEvent) {
+      // A label forwards its press to the input as a click with no pointer; that is not a second press.
+      if (event.detail !== 0 || performance.now() - lastPress < 500) return;
+      const cue = cueFor(event.target);
+      if (cue) sounds.play(cue);
+    }
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('click', onClick, true);
+    // Decode the short cues now so the very first press is not late.
+    sounds.prime();
+    return () => { document.removeEventListener('pointerdown', onPointerDown, true); document.removeEventListener('click', onClick, true); };
   }, []);
   const today = useToday();
   const [at, setAt] = useState<YearMonth>(() => { const { year, month } = parseDateKey(today); return { year, month }; });
@@ -58,13 +81,7 @@ export function App() {
   const isNative = isTauri();
   // A launch decision, so changing Settings does not replay the screen mid-session.
   const [startupVisible, setStartupVisible] = useState(() => isNative && preferences.startupScreen);
-  const startupCueAttempted = useRef(false);
   const dismissStartup = useCallback(() => setStartupVisible(false), []);
-  useEffect(() => {
-    if (startupCueAttempted.current) return;
-    startupCueAttempted.current = true;
-    if (startupVisible && (!isMac || import.meta.env.MODE === 'preview')) sounds.play('startup');
-  }, []);
   const busy = status === 'loading' || status === 'saving';
   const statusRef = useRef(status);
   statusRef.current = status;
@@ -76,16 +93,20 @@ export function App() {
     let closing = false;
     let unlisten: (() => void) | undefined;
     let unlistenExit: (() => void) | undefined;
-    function finish() {
+    // As in Terminal: nothing closes during a save; then the close sound starts, the window
+    // hides at once, and the app exits when the sound ends (capped natively at 6.5 s).
+    async function finish() {
       if (closing || statusRef.current === 'saving') return;
       closing = true;
       const settings = preferencesRef.current;
       if (isMac) {
-        void invoke('finish_exit', { playSound: settings.startupSound && !settings.muted && settings.volume > 0, volume: settings.volume });
-      } else {
-        const played = sounds.play('close');
-        window.setTimeout(() => { if (!disposed) void invoke('finish_exit', { playSound: false, volume: 0 }); }, played ? 6100 : 0);
+        // macOS plays the close sound natively so it starts immediately even before any click.
+        const gain = cueGain(settings, 'close');
+        void invoke('finish_exit', { nativeCueVolume: gain > 0 ? Math.round(gain * 100) : null, lingerMs: null });
+        return;
       }
+      const lingerMs = await sounds.playClose();
+      if (!disposed) void invoke('finish_exit', { nativeCueVolume: null, lingerMs });
     }
     void getCurrentWindow().onCloseRequested(event => {
       event.preventDefault();
@@ -163,7 +184,6 @@ export function App() {
       else next.delete(date);
       return next;
     });
-    if (checked) sounds.play('completion');
     setCompletions(previous => { const next = new Set(previous); const key = `${habit.id}:${date}`; if (checked) next.add(key); else next.delete(key); return next; });
     if (date < habit.startDate) reload();
   });
@@ -175,6 +195,7 @@ export function App() {
 
   function updatePreferences(next: typeof preferences) {
     sounds.configure(next);
+    syncNativeSound(next);
     setPreferences(next);
     setPreferencesStored(storePreferences(next));
   }

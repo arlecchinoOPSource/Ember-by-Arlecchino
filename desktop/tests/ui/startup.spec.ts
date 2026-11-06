@@ -44,25 +44,31 @@ test('reduced motion removes startup animation without hiding loading feedback',
   await expect(startup(page)).toHaveCount(0);
 });
 
-test('startup preference survives reload and rejected audio does not block launch', async ({ page }) => {
+test('startup sound plays once per launch, independent of the startup screen, and rejected audio does not block launch', async ({ page }) => {
   await page.addInitScript(() => {
     const state = window as Window & { startupPlayCount: number };
     state.startupPlayCount = 0;
-    HTMLMediaElement.prototype.play = () => { state.startupPlayCount += 1; return Promise.reject(new Error('Audio unavailable')); };
-    if (!localStorage.getItem('ember.preferences.v1')) localStorage.setItem('ember.preferences.v1', JSON.stringify({ startupSound: true }));
+    AudioBufferSourceNode.prototype.start = () => { state.startupPlayCount += 1; throw new Error('Audio unavailable'); };
   });
+  const count = () => page.evaluate(() => (window as Window & { startupPlayCount: number }).startupPlayCount);
   await page.goto('/?startupDelay=2000');
   await expect(startup(page)).toBeVisible();
-  expect(await page.evaluate(() => (window as Window & { startupPlayCount: number }).startupPlayCount)).toBe(1);
+  await expect.poll(count).toBe(1);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('checkbox', { name: 'Startup sound' })).toBeChecked();
   await page.getByRole('radio', { name: 'Off' }).last().check();
   await page.reload();
   await expect(status(page)).toHaveText('OPENING');
   await expect(startup(page)).toHaveCount(0);
-  expect(await page.evaluate(() => (window as Window & { startupPlayCount: number }).startupPlayCount)).toBe(0);
+  await expect.poll(count).toBe(1);
   await expect(status(page)).toHaveText('READY', { timeout: 3000 });
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('radio', { name: 'Off' }).last()).toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await page.getByRole('checkbox', { name: 'Startup sound' }).uncheck();
+  await page.reload();
+  await expect(status(page)).toHaveText('READY', { timeout: 3000 });
+  await page.waitForTimeout(300);
+  expect(await count()).toBe(0);
 });

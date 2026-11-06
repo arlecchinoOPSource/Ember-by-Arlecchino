@@ -177,22 +177,40 @@ dialog .suite-button.destructive:hover { background: rgba(var(--danger-rgb), .16
 .settings-note { margin: 8px 0 14px; color: var(--muted); font: .75rem/1.5 var(--font-read); }
 .settings-error { color: var(--danger); }
 .settings-about { margin: 0; padding: 12px 16px 16px; border-top: 1px solid var(--line-2); color: var(--text-2); font: .75rem/1.5 var(--font-read); }
-.sound-panel { padding: 2px 16px 12px; }
-.settings-content .sound-panel { padding: 4px 0 0; border-top: 1px solid var(--line-2); }
-.sound-mute { margin: 12px 0; }
-.sound-volume { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; color: var(--text-2); font-size: .75rem; }
-.sound-volume input { grid-column: 1 / -1; width: 100%; accent-color: var(--phosphor); }
-.sound-volume output { color: var(--text); }
-.sound-list { margin-top: 14px; border-top: 1px solid var(--line-2); }
-.sound-row { display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid var(--line-2); }
-.sound-row label { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; color: var(--text); font: .8125rem var(--font-read); }
-.sound-row label span { display: grid; gap: 2px; }
-.sound-row strong { font-weight: 500; }
-.sound-row small { color: var(--text-2); font-size: .6875rem; }
-.sound-preview { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line-3); background: var(--panel-2); color: var(--phosphor); }
-.sound-preview svg { width: 16px; height: 16px; }
-.sound-preview:disabled { opacity: .4; }
-.sound-preview:not(:disabled):hover { background: var(--tint); }
+/* Sounds popover: ported from Terminal (src/styles/app.css) so the two apps match. */
+.sound-panel { overflow-y: auto; min-height: 0; padding: 4px 14px 14px; }
+.sound-master { display: grid; gap: 8px; padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
+.sound-switch { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: .8125rem; color: var(--text); }
+.sound-switch input, .sound-row input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.sound-switch-track { width: 34px; height: 18px; padding: 2px; border: 1px solid var(--line-3); border-radius: 2px; background: var(--void); transition: border-color var(--motion-state) var(--ease); }
+.sound-switch-track > span { display: block; width: 12px; height: 12px; background: var(--muted); transition: transform var(--motion-state) steps(3, end), background-color var(--motion-state) var(--ease); }
+.sound-switch input:checked + .sound-switch-track { border-color: var(--phosphor); }
+.sound-switch input:checked + .sound-switch-track > span { transform: translateX(16px); background: var(--phosphor); box-shadow: 0 0 6px var(--glow); }
+.sound-switch input:focus-visible + .sound-switch-track, .sound-row input:focus-visible ~ .sound-name, .sound-row input:focus-visible + .sound-check { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sound-state { margin-left: auto; font-size: .6875rem; letter-spacing: .12em; color: var(--muted); }
+.sound-switch input:checked ~ .sound-state { color: var(--phosphor); }
+.ember-sounds-popover .sound-section { margin: 14px 0 6px; }
+.sound-list { display: grid; gap: 1px; }
+.sound-row { display: flex; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: var(--radius); transition: background-color var(--motion-state) var(--ease), border-color var(--motion-state) var(--ease); }
+.sound-row:hover { background: var(--panel-2); }
+.sound-row.selected { background: var(--tint); border-color: var(--line-2); }
+.sound-row label { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 5px 8px; cursor: pointer; }
+.sound-check { flex-shrink: 0; width: 14px; height: 14px; border: 1px solid var(--line-3); border-radius: 2px; background: var(--void); }
+.sound-radio { border-radius: 50%; }
+.sound-row input:checked + .sound-check { background: var(--phosphor); border-color: var(--phosphor); box-shadow: inset 0 0 0 2px var(--void), 0 0 6px var(--glow); }
+.sound-name { display: grid; min-width: 0; font-size: .8125rem; color: var(--text); }
+.sound-description { font-size: .6875rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sound-row.selected .sound-name > span:first-child { color: var(--phosphor-hi); }
+.sound-preview { flex-shrink: 0; width: 28px; height: 28px; margin-right: 4px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: var(--radius); background: transparent; color: var(--text-2); transition: color var(--motion-state) var(--ease), border-color var(--motion-state) var(--ease); }
+.sound-preview svg { width: 12px; height: 12px; }
+.sound-preview:hover { color: var(--phosphor); border-color: var(--phosphor-lo); }
+.sound-volume { display: grid; grid-template-columns: minmax(0, 1fr) 150px 40px; align-items: center; gap: 10px; margin-top: 8px; font-size: .75rem; color: var(--text-2); }
+.sound-volume output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sound-volume input { width: 100%; accent-color: var(--phosphor); }
+.sound-off .sound-list, .sound-off .sound-volume:not(.sound-master .sound-volume) { opacity: .6; }
+.sound-note { margin: 14px 0 0; font-size: .6875rem; line-height: 1.6; color: var(--muted); }
+.ember-sounds-popover { width: min(440px, calc(100% - 32px)); }
+.ember-sounds-popover .sound-panel { max-height: calc(100vh - 120px); }
 .theme-choice { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 6px 10px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); text-align: left; }
 .theme-choice + .theme-choice { margin-top: 6px; }
 .theme-choice[aria-pressed='true'] { border-color: var(--phosphor); background: var(--tint); }

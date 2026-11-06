@@ -35,13 +35,14 @@ jobs:
           mkdir -p ../out
           codesign --verify --deep --strict --verbose=2 "$B/macos/Ember.app"
           lipo -info "$B/macos/Ember.app/Contents/MacOS/"*
-          ditto -c -k --keepParent "$B/macos/Ember.app" ../out/Ember_1.0.0_universal.app.zip
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          ditto -c -k --keepParent "$B/macos/Ember.app" "../out/Ember_${VERSION}_universal.app.zip"
           cp "$B"/dmg/*.dmg ../out/
           hdiutil verify ../out/*.dmg
           cd ../out && shasum -a 256 * > SHA256SUMS-macos.txt && cat SHA256SUMS-macos.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Ember-1.0.0-macOS-universal
+          name: Ember-macOS-universal
           path: out/
           retention-days: 30
   windows:
@@ -72,6 +73,6 @@ jobs:
           Get-Content ../out/SHA256SUMS-windows.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Ember-1.0.0-Windows-x64
+          name: Ember-Windows-x64
           path: out/
           retention-days: 30

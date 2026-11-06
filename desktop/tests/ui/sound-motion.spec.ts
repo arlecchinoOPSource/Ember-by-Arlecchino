@@ -1,35 +1,84 @@
 import { expect, test } from '@playwright/test';
 
-test('sound choices persist, mute is immediate, and interface cues do not play while muted', async ({ page }) => {
-  await page.addInitScript(() => {
-    const target = window as Window & { emberPlayCount: number };
-    target.emberPlayCount = 0;
-    HTMLMediaElement.prototype.play = () => { target.emberPlayCount++; return Promise.resolve(); };
-  });
+/** Counts every Web Audio cue that actually starts, by file. */
+const countCues = () => {
+  const target = window as Window & { emberCues: string[] };
+  target.emberCues = [];
+  const decode = AudioContext.prototype.decodeAudioData;
+  const names = new WeakMap<AudioBuffer, string>();
+  const originalFetch = window.fetch;
+  let last = '';
+  window.fetch = (input, init) => { last = String(input); return originalFetch(input, init); };
+  AudioContext.prototype.decodeAudioData = function (data: ArrayBuffer) {
+    const name = last;
+    return decode.call(this, data).then(buffer => { names.set(buffer, name); return buffer; });
+  } as typeof decode;
+  const start = AudioBufferSourceNode.prototype.start;
+  AudioBufferSourceNode.prototype.start = function (...args: Parameters<typeof start>) {
+    target.emberCues.push((this.buffer && names.get(this.buffer)?.match(/(\w+)[-.]\w*\.wav/)?.[1]) || 'cue');
+    return start.apply(this, args);
+  };
+};
+const cues = (page: import('@playwright/test').Page) => page.evaluate(() => (window as Window & { emberCues: string[] }).emberCues.length);
+
+test('Sounds popup matches Terminal: master switch, cue switches with previews, choices persist', async ({ page }) => {
+  await page.addInitScript(countCues);
+  await page.goto('/');
+  await expect(page.locator('.save-status')).toHaveText('READY');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('.settings-dock')).not.toContainText(/sound/i);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Sounds' });
+  await expect(dialog.getByRole('switch', { name: /Sound/ })).toBeChecked();
+  await expect(dialog.getByText('INTERFACE', { exact: true })).toBeVisible();
+  for (const name of ['Interface', 'Completion', 'Error', 'Close', 'Startup']) await expect(dialog.getByRole('button', { name: `Preview ${name} sound` })).toBeVisible();
+  await expect(dialog.getByRole('slider', { name: 'Master volume' })).toBeVisible();
+  await expect(dialog.getByRole('slider', { name: 'Interface volume' })).toBeVisible();
+  await expect(dialog.getByRole('checkbox', { name: 'Startup sound' })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'Close sound' })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
+
+  // ▶ plays on press, even with that cue switched off, and is not doubled by the interface cue.
+  const before = await cues(page);
+  await dialog.getByRole('button', { name: 'Preview Completion sound' }).click();
+  await expect.poll(() => cues(page)).toBe(before + 1);
+
+  await dialog.getByRole('checkbox', { name: 'Interface sound' }).check();
+  await page.keyboard.press('Escape');
+  const pressed = await cues(page);
+  await page.getByRole('button', { name: 'Today' }).click();
+  await expect.poll(() => cues(page)).toBeGreaterThan(pressed);
+
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await dialog.getByRole('switch', { name: /Sound/ }).uncheck();
+  await expect(dialog).toContainText('OFF');
+  await page.keyboard.press('Escape');
+  const muted = await cues(page);
+  await page.getByRole('button', { name: 'Today' }).click();
+  await page.waitForTimeout(200);
+  expect(await cues(page)).toBe(muted);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sounds' }).click();
+  await expect(dialog.getByRole('checkbox', { name: 'Interface sound' })).toBeChecked();
+  await expect(dialog.getByRole('switch', { name: /Sound/ })).not.toBeChecked();
+});
+
+test('cues start on press, before the button is released', async ({ page }) => {
+  await page.addInitScript(countCues);
   await page.goto('/');
   await expect(page.locator('.save-status')).toHaveText('READY');
   await page.getByRole('button', { name: 'Sounds' }).click();
-  await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: 'Startup sound' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Completion sound' })).not.toBeChecked();
-  await page.getByRole('checkbox', { name: 'Interface sound' }).check();
+  await page.getByRole('dialog', { name: 'Sounds' }).getByRole('checkbox', { name: 'Interface sound' }).check();
   await page.keyboard.press('Escape');
-  const before = await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount);
+  const box = (await page.getByRole('button', { name: 'Today' }).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const before = await cues(page);
+  await page.mouse.down();
+  await expect.poll(() => cues(page), { timeout: 250 }).toBe(before + 1);
+  await page.mouse.up();
   await page.waitForTimeout(100);
-  await page.getByRole('button', { name: 'Today' }).click();
-  expect(await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount)).toBeGreaterThan(before);
-  await page.getByRole('button', { name: 'Sounds' }).click();
-  await page.getByRole('checkbox', { name: 'Mute all sounds' }).check();
-  await expect(page.getByRole('button', { name: 'Play Interface sample' })).toBeDisabled();
-  await page.keyboard.press('Escape');
-  const mutedCount = await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount);
-  await page.getByRole('button', { name: 'Today' }).click();
-  expect(await page.evaluate(() => (window as Window & { emberPlayCount: number }).emberPlayCount)).toBe(mutedCount);
-  await page.reload();
-  await page.getByRole('button', { name: 'Sounds' }).click();
-  await expect(page.getByRole('checkbox', { name: 'Interface sound' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Mute all sounds' })).toBeChecked();
+  expect(await cues(page)).toBe(before + 1);
 });
 
 test('Full, Reduced, Off, and OS reduced motion keep navigation and focus usable', async ({ page }) => {

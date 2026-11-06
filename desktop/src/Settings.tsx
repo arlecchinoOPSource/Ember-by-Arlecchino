@@ -1,6 +1,5 @@
 import { MOTION_LEVELS, THEMES, parseMotion, type ThemeId } from '@arlecchino/suite-ui';
 import type { Preferences } from './preferences';
-import { SoundPanel } from './SoundPanel';
 
 type Props = { value: Preferences; update: (value: Preferences) => void; stored: boolean; openThemes: () => void };
 
@@ -35,7 +34,6 @@ export function Settings({ value, update, stored, openThemes }: Props) {
       </div></fieldset>
       <p className="settings-note">Shown while local habits open; any key or click skips it. Applies from the next launch.</p>
     </section>
-    <SoundPanel value={value} update={update} />
     {!stored && <p className="settings-error" role="alert">Settings apply for this session. Allow local storage to keep them after closing Ember.</p>}
   </div>;
 }

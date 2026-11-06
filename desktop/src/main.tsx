@@ -10,17 +10,19 @@ import '@fontsource/ibm-plex-sans-condensed/latin-600-italic.css';
 import '@fontsource/ibm-plex-sans-condensed/latin-600.css';
 import { applyPreferences, readPreferences } from './preferences';
 import { App } from './App';
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { sounds } from './sounds';
+import { startStartupSound, syncNativeSound } from './nativeSound';
 import './styles.css';
 
 // Before the first render, so Ember never appears in the wrong theme or motion level.
 const launchPreferences = readPreferences();
 applyPreferences(launchPreferences);
-if (isTauri() && import.meta.env.MODE !== 'preview' && /Mac/.test(navigator.platform) && launchPreferences.startupScreen && launchPreferences.startupSound && !launchPreferences.muted && launchPreferences.volume > 0) {
-  void invoke('play_startup_sound', { volume: launchPreferences.volume }).catch(() => { /* An unavailable audio device never blocks launch. */ });
-}
+// The startup sound starts before the first render, as in Terminal; nothing waits for it.
+sounds.configure(launchPreferences);
+syncNativeSound(launchPreferences);
 
 // Browser preview build only: synthetic in-memory data instead of native storage.
 if (import.meta.env.MODE === 'preview') (await import('./preview/sampleNative')).install();
+void startStartupSound(launchPreferences, () => sounds.playStartup(), () => sounds.startupHandledNatively());
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
