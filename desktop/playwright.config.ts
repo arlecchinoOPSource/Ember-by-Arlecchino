@@ -9,6 +9,8 @@ const executablePath = process.env.EMBER_CHROMIUM;
 export default defineConfig({
   testDir: 'tests/ui',
   fullyParallel: true,
+  // Diagnostics only: EMBER_WORKERS pins the worker count.
+  workers: process.env.EMBER_WORKERS ? Number(process.env.EMBER_WORKERS) : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list']] : 'line',
@@ -21,7 +23,7 @@ export default defineConfig({
       ...(executablePath ? { executablePath } : {}),
     } } },
     // WebKit is the engine of the macOS app; run it where Playwright's WebKit is installed.
-    ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 } } }] : []),
+    ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 }, ...(process.env.EMBER_REDUCED_MOTION ? { reducedMotion: 'reduce' as const } : {}) } }] : []),
   ],
-  webServer: { command: `npx vite --mode preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 60_000 },
+  webServer: { command: process.env.EMBER_SERVER || `npx vite --mode preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 60_000 },
 });

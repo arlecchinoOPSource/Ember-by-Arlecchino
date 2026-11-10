@@ -45,6 +45,10 @@ jobs:
       - run: npx tauri build --debug --no-bundle
       - run: xvfb-run -a npm run test:native
   ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, one-worker, reduced-motion, production-build]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,13 +62,16 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
-      - run: npm run test:ui
+      - run: npx playwright test --project=webkit
         env:
           EMBER_WEBKIT: '1'
+          EMBER_WORKERS: ${{ matrix.variant == 'one-worker' && '1' || '' }}
+          EMBER_REDUCED_MOTION: ${{ matrix.variant == 'reduced-motion' && '1' || '' }}
+          EMBER_SERVER: ${{ matrix.variant == 'production-build' && 'npx vite build --mode preview --outDir dist-preview --base ./ && npx vite preview --mode preview --outDir dist-preview --port 4320 --strictPort' || '' }}
       - name: Keep Playwright traces from failed runs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-traces
+          name: playwright-traces-${{ matrix.variant }}
           path: desktop/test-results
           retention-days: 7
