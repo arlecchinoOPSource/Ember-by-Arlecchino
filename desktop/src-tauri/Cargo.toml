@@ -1,6 +1,6 @@
 [package]
 name = "ember-by-arlecchino"
-version = "2.0.1"
+version = "2.0.2"
 description = "Offline desktop habit tracker"
 authors = ["Arlecchino"]
 license = "MIT"

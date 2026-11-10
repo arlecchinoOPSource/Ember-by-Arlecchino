@@ -1,3 +1,11 @@
+# Ember 2.0.2
+
+Ember 2.0.2 was published on 2026-11-08 as a macOS Apple Silicon disk image (`Ember_2.0.2_aarch64.dmg`) only. It contains the 2.0.1 fixes for archived-habit deletion and the native startup and close sounds (its permission manifest declares every registered command, including `habits_delete_preview`). The SQLite schema is still v1, so there is no migration.
+
+## Source record
+
+The 2.0.2 build tree was not committed when the release was made: tag `v2.0.2` points at the 2.0.1 commit `5af1eae`, whose manifests said 2.0.1, while the disk image reports 2.0.2. This commit sets every manifest to 2.0.2 so the repository matches the published version. No other source change is recorded for 2.0.2, and whether the build tree differed from 2.0.1 in any other way was not verified. The 2.0.1 universal builds and Windows installers remain the latest for those platforms.
+
 # Ember 2.0.1
 
 Ember 2.0.1 fixes the archived-habit deletion and native sound failures in 2.0.0. Habits, history and settings are unchanged: the SQLite schema is still v1, so there is no migration.
