@@ -61,3 +61,10 @@ jobs:
       - run: npm run test:ui
         env:
           EMBER_WEBKIT: '1'
+      - name: Keep Playwright traces from failed runs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: desktop/test-results
+          retention-days: 7
