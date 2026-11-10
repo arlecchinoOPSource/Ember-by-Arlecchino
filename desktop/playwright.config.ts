@@ -23,5 +23,8 @@ export default defineConfig({
     // WebKit is the engine of the macOS app; run it where Playwright's WebKit is installed.
     ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 } } }] : []),
   ],
-  webServer: { command: `npx vite --mode preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 60_000 },
+  // The tests run against the production preview build, not the Vite dev server: on the Linux CI runner
+  // WebKit rendered the unminified dev build (React development mode, about 60 module requests) at about
+  // one frame a second, so every click waited seconds and the job timed out differently on each run.
+  webServer: { command: `npm run build:preview && npx vite preview --mode preview --outDir dist-preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 120_000 },
 });

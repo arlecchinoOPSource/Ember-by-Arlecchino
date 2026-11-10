@@ -45,6 +45,11 @@ jobs:
       - run: npx tauri build --debug --no-bundle
       - run: xvfb-run -a npm run test:native
   ui:
+    # One browser per job: chromium and WebKit side by side starved each other on the 4-core runner.
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, webkit]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,6 +63,13 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
-      - run: npm run test:ui
+      - run: npx playwright test --project=${{ matrix.project }}
         env:
           EMBER_WEBKIT: '1'
+      - name: Keep Playwright traces from failed runs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.project }}
+          path: desktop/test-results
+          retention-days: 7
