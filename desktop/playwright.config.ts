@@ -9,8 +9,6 @@ const executablePath = process.env.EMBER_CHROMIUM;
 export default defineConfig({
   testDir: 'tests/ui',
   fullyParallel: true,
-  // Diagnostics only: EMBER_WORKERS pins the worker count.
-  workers: process.env.EMBER_WORKERS ? Number(process.env.EMBER_WORKERS) : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list']] : 'line',
@@ -23,7 +21,10 @@ export default defineConfig({
       ...(executablePath ? { executablePath } : {}),
     } } },
     // WebKit is the engine of the macOS app; run it where Playwright's WebKit is installed.
-    ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 }, ...(process.env.EMBER_REDUCED_MOTION ? { reducedMotion: 'reduce' as const } : {}) } }] : []),
+    ...(process.env.EMBER_WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1160, height: 780 } } }] : []),
   ],
-  webServer: { command: process.env.EMBER_SERVER || `npx vite --mode preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 60_000 },
+  // The tests run against the production preview build, not the Vite dev server: on the Linux CI runner
+  // WebKit rendered the unminified dev build (React development mode, about 60 module requests) at about
+  // one frame a second, so every click waited seconds and the job timed out differently on each run.
+  webServer: { command: `npm run build:preview && npx vite preview --mode preview --outDir dist-preview --port ${port} --strictPort`, url: `http://localhost:${port}`, reuseExistingServer: false, timeout: 120_000 },
 });
