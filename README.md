@@ -4,7 +4,7 @@ Ember is an offline desktop habit tracker for macOS and Windows. It is being bui
 
 ## Project status
 
-Version 2.0.1 is the current release. It fixes archived-habit deletion and the native startup and close sounds from 2.0.0, and keeps the Terminal-style shell, startup screen, Sounds popup, monthly tracker, practice streaks, website import, manual backup and restore, and CSV/JSON exports. See the [release notes](docs/RELEASE-NOTES.md) and [release checklist](docs/RELEASE-CHECKLIST.md) for tested platforms.
+Version 2.0.2 is the current release. It fixes archived-habit deletion and the native startup and close sounds from 2.0.0, and keeps the Terminal-style shell, startup screen, Sounds popup, monthly tracker, practice streaks, website import, manual backup and restore, and CSV/JSON exports. See the [release notes](docs/RELEASE-NOTES.md) and [release checklist](docs/RELEASE-CHECKLIST.md) for tested platforms.
 
 The existing Ember website is a separate private Site. Its checkout and any user data are excluded from this repository. The desktop app does not access the website account or database.
 
