@@ -9,15 +9,15 @@ import { fileURLToPath } from 'node:url';
 // startup/close cues failed with "Command … not allowed by ACL".
 
 const root = fileURLToPath(new URL('../src-tauri/', import.meta.url));
-const lib = readFileSync(`${root}src/lib.rs`, 'utf8');
+const lib = readFileSync(`${root}src/standalone.rs`, 'utf8');
 const build = readFileSync(`${root}build.rs`, 'utf8');
 const capability = JSON.parse(readFileSync(`${root}capabilities/default.json`, 'utf8'));
 
 const handler = lib.match(/generate_handler!\s*\[([\s\S]*?)\]/);
-if (!handler) throw new Error('generate_handler! not found in src-tauri/src/lib.rs');
+if (!handler) throw new Error('generate_handler! not found in src-tauri/src/standalone.rs');
 const commands = handler[1]
   .split(',')
-  .map(name => name.trim())
+  .map(name => name.trim().replace(/^commands::/, ''))
   .filter(Boolean);
 
 const manifest = build.match(/\.commands\(&\[([\s\S]*?)\]\)/);
